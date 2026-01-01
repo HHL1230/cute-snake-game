@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="game-container">
         <!-- 裝飾星星 -->
@@ -16,9 +18,9 @@
         <div class="sparkle sparkle-2">⭐</div>
         <div class="sparkle sparkle-3">💫</div>
         <div class="sparkle sparkle-4">✨</div>
-        
+
         <h1 class="title">🐍 可愛貪食蛇 💕</h1>
-        
+
         <div class="score-board">
             <div class="score-item">
                 <span class="score-label">🏆 分數</span>
@@ -29,9 +31,9 @@
                 <span class="score-value" id="highScore">0</span>
             </div>
         </div>
-        
+
         <div class="canvas-wrapper">
-            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <canvas id="gameCanvas" width="600" height="600"></canvas>
             <div class="game-overlay" id="gameOverlay">
                 <div class="overlay-content">
                     <h2 id="overlayTitle">🎮 開始遊戲</h2>
@@ -50,11 +52,11 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="controls-hint">
             <p>⬆️ ⬇️ ⬅️ ➡️ 方向鍵控制</p>
         </div>
-        
+
         <!-- 手機觸控控制按鈕 -->
         <div class="mobile-controls">
             <button class="control-btn" id="upBtn">⬆️</button>
@@ -65,7 +67,8 @@
             </div>
         </div>
     </div>
-    
+
     <script src="game.js"></script>
 </body>
+
 </html>

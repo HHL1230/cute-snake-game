@@ -2,19 +2,39 @@
  * 可愛貪食蛇遊戲 - 主程式
  * 
  * 特色：
- * - 可愛粉色系蛇蛇帶有表情
- * - 甜點食物（草莓、蛋糕、餅乾等）
- * - 流暢動畫效果
+ * - 隨機動物頭像（貓、狗、兔、鼠等）
+ * - 隨機身體顏色與主題配色
+ * - 高解析度移動（更小格子）
  */
 
 // ===== 遊戲常數 =====
-const GRID_SIZE = 20;        // 格子大小
+const GRID_SIZE = 15;        // 格子大小（從 20 改為 15）
 let gameSpeed = 150;         // 遊戲速度 (ms), 預設正常
-const CANVAS_SIZE = 400;     // Canvas 尺寸
-const GRID_COUNT = CANVAS_SIZE / GRID_SIZE;  // 格子數量
+const CANVAS_SIZE = 600;     // Canvas 尺寸（從 400 改為 600）
+const GRID_COUNT = CANVAS_SIZE / GRID_SIZE;  // 格子數量 = 40
 
 // 可愛的食物表情符號
 const FOOD_EMOJIS = ['🍓', '🍰', '🍪', '🍩', '🧁', '🍭', '🍬', '💖', '⭐', '🌸'];
+
+// 動物頭像選項
+const ANIMAL_HEADS = ['🐱', '🐶', '🐰', '🐭', '🐻', '🐼', '🦊', '🐹', '🐸'];
+
+// 身體顏色選項
+const BODY_COLORS = [
+    { main: '#FFB6C8', dark: '#FF9BB3', light: '#FFD4E0' },  // 粉紅
+    { main: '#A5D6F7', dark: '#78B4E8', light: '#D0EBFF' },  // 淡藍
+    { main: '#B8E6B8', dark: '#8FD98F', light: '#D4F5D4' },  // 淡綠
+    { main: '#F7E7A5', dark: '#E8D478', light: '#FFF5CC' },  // 淡黃
+    { main: '#D4B8F0', dark: '#B890E0', light: '#E8D4F8' },  // 淡紫
+    { main: '#FFD4A5', dark: '#F0B878', light: '#FFE8CC' },  // 淡橘
+];
+
+// 主題選項
+const THEMES = ['blue', 'yellow', 'pink', 'green'];
+
+// 當前遊戲狀態
+let currentAnimal = '🐱';
+let currentBodyColor = BODY_COLORS[0];
 
 // ===== 遊戲元素 =====
 const canvas = document.getElementById('gameCanvas');
@@ -26,6 +46,10 @@ const overlayTitle = document.getElementById('overlayTitle');
 const overlayMessage = document.getElementById('overlayMessage');
 const startBtn = document.getElementById('startBtn');
 const speedBtns = document.querySelectorAll('.speed-btn');
+
+// 設定 Canvas 實際尺寸
+canvas.width = CANVAS_SIZE;
+canvas.height = CANVAS_SIZE;
 
 // ===== 遊戲狀態 =====
 let snake = [];
@@ -40,19 +64,26 @@ let gameLoop = null;
 // 初始化最高分
 highScoreElement.textContent = highScore;
 
-// ===== 蛇的顏色 =====
-const SNAKE_COLORS = {
-    head: '#FF8FAB',
-    headDark: '#FF5C8A',
-    body: '#FFB6C8',
-    bodyDark: '#FF9BB3',
-    blush: '#FF6B8A',
-    eye: '#5D4E6D',
-    eyeWhite: '#FFFFFF'
-};
+// ===== 主題切換 =====
+function setRandomTheme() {
+    const theme = THEMES[Math.floor(Math.random() * THEMES.length)];
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+// 頁面載入時設定隨機主題
+setRandomTheme();
 
 // ===== 遊戲初始化 =====
 function initGame() {
+    // 隨機選擇動物頭像
+    currentAnimal = ANIMAL_HEADS[Math.floor(Math.random() * ANIMAL_HEADS.length)];
+
+    // 隨機選擇身體顏色
+    currentBodyColor = BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)];
+
+    // 隨機選擇新主題
+    setRandomTheme();
+
     // 初始化蛇（從中間開始）
     const startX = Math.floor(GRID_COUNT / 2);
     const startY = Math.floor(GRID_COUNT / 2);
@@ -274,66 +305,12 @@ function drawSnake() {
 function drawSnakeHead(x, y) {
     const centerX = x + GRID_SIZE / 2;
     const centerY = y + GRID_SIZE / 2;
-    const radius = GRID_SIZE / 2 - 1;
 
-    // 蛇頭主體
-    const gradient = ctx.createRadialGradient(
-        centerX - 3, centerY - 3, 0,
-        centerX, centerY, radius
-    );
-    gradient.addColorStop(0, SNAKE_COLORS.head);
-    gradient.addColorStop(1, SNAKE_COLORS.headDark);
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 計算眼睛位置（根據移動方向）
-    const eyeOffset = 4;
-    let eye1X, eye1Y, eye2X, eye2Y;
-
-    if (direction.x === 1) {  // 向右
-        eye1X = centerX + 2; eye1Y = centerY - eyeOffset;
-        eye2X = centerX + 2; eye2Y = centerY + eyeOffset;
-    } else if (direction.x === -1) {  // 向左
-        eye1X = centerX - 2; eye1Y = centerY - eyeOffset;
-        eye2X = centerX - 2; eye2Y = centerY + eyeOffset;
-    } else if (direction.y === -1) {  // 向上
-        eye1X = centerX - eyeOffset; eye1Y = centerY - 2;
-        eye2X = centerX + eyeOffset; eye2Y = centerY - 2;
-    } else {  // 向下
-        eye1X = centerX - eyeOffset; eye1Y = centerY + 2;
-        eye2X = centerX + eyeOffset; eye2Y = centerY + 2;
-    }
-
-    // 眼白
-    ctx.fillStyle = SNAKE_COLORS.eyeWhite;
-    ctx.beginPath();
-    ctx.arc(eye1X, eye1Y, 3, 0, Math.PI * 2);
-    ctx.arc(eye2X, eye2Y, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 眼珠
-    ctx.fillStyle = SNAKE_COLORS.eye;
-    ctx.beginPath();
-    ctx.arc(eye1X + direction.x, eye1Y + direction.y, 1.5, 0, Math.PI * 2);
-    ctx.arc(eye2X + direction.x, eye2Y + direction.y, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 腮紅
-    ctx.fillStyle = SNAKE_COLORS.blush;
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath();
-    if (direction.x !== 0) {
-        ctx.arc(centerX - direction.x * 3, centerY - 4, 2.5, 0, Math.PI * 2);
-        ctx.arc(centerX - direction.x * 3, centerY + 4, 2.5, 0, Math.PI * 2);
-    } else {
-        ctx.arc(centerX - 4, centerY - direction.y * 3, 2.5, 0, Math.PI * 2);
-        ctx.arc(centerX + 4, centerY - direction.y * 3, 2.5, 0, Math.PI * 2);
-    }
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    // 繪製動物頭像 emoji
+    ctx.font = `${GRID_SIZE + 2}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(currentAnimal, centerX, centerY);
 }
 
 // ===== 繪製蛇身 =====
@@ -342,7 +319,7 @@ function drawSnakeBody(x, y, index) {
     const centerY = y + GRID_SIZE / 2;
     const radius = GRID_SIZE / 2 - 2;
 
-    // 身體漸層
+    // 身體漸層（使用隨機選擇的顏色）
     const gradient = ctx.createRadialGradient(
         centerX - 2, centerY - 2, 0,
         centerX, centerY, radius
@@ -350,17 +327,19 @@ function drawSnakeBody(x, y, index) {
 
     // 根據位置調整顏色深淺，越靠近尾巴越淺
     const alpha = 1 - (index / snake.length) * 0.3;
-    gradient.addColorStop(0, `rgba(255, 182, 200, ${alpha})`);
-    gradient.addColorStop(1, `rgba(255, 155, 179, ${alpha})`);
+    gradient.addColorStop(0, currentBodyColor.light);
+    gradient.addColorStop(1, currentBodyColor.dark);
 
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
 
     // 身體上的愛心裝飾
-    if (index % 3 === 0) {
-        ctx.font = '8px Arial';
+    if (index % 4 === 0) {
+        ctx.font = `${GRID_SIZE * 0.5}px Arial`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -442,13 +421,14 @@ function drawInitialScreen() {
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     drawGrid();
 
-    // 繪製一條靜態的可愛蛇
+    // 繪製一條靜態的可愛蛇（位於畫面中間）
+    const centerY = Math.floor(GRID_COUNT / 2);
     const demoSnake = [
-        { x: 10, y: 10 },
-        { x: 9, y: 10 },
-        { x: 8, y: 10 },
-        { x: 7, y: 10 },
-        { x: 6, y: 10 }
+        { x: 22, y: centerY },
+        { x: 21, y: centerY },
+        { x: 20, y: centerY },
+        { x: 19, y: centerY },
+        { x: 18, y: centerY }
     ];
 
     snake = demoSnake;
@@ -456,7 +436,7 @@ function drawInitialScreen() {
     drawSnake();
 
     // 繪製一個食物
-    food = { x: 13, y: 10, emoji: '🍓' };
+    food = { x: 26, y: centerY, emoji: '🍓' };
     drawFood();
 }
 

@@ -1,19 +1,55 @@
-/* ===== 可愛貪食蛇遊戲樣式 ===== */
-
-/* 配色變數 */
+/* 配色變數 - 基礎 */
 :root {
-    --pink-light: #FFE4EC;
-    --pink-main: #FF8FAB;
-    --pink-dark: #FF5C8A;
-    --purple-light: #E8D5F2;
-    --purple-main: #C9A7EB;
-    --mint-light: #D4F5E9;
-    --mint-main: #7FDBCA;
-    --yellow-light: #FFF5D4;
-    --yellow-main: #FFD93D;
     --white: #FFFFFF;
     --text-main: #5D4E6D;
+
+    /* 預設主題（粉紅） */
+    --theme-light: #FFE4EC;
+    --theme-main: #FF8FAB;
+    --theme-dark: #FF5C8A;
+    --theme-accent: #C9A7EB;
     --shadow-color: rgba(255, 92, 138, 0.3);
+    --bg-gradient: linear-gradient(135deg, #FFE4EC 0%, #E8D5F2 50%, #D4F5E9 100%);
+}
+
+/* 淡藍主題 */
+[data-theme="blue"] {
+    --theme-light: #E3F2FD;
+    --theme-main: #64B5F6;
+    --theme-dark: #1976D2;
+    --theme-accent: #90CAF9;
+    --shadow-color: rgba(25, 118, 210, 0.3);
+    --bg-gradient: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E1F5FE 100%);
+}
+
+/* 淡黃主題 */
+[data-theme="yellow"] {
+    --theme-light: #FFFDE7;
+    --theme-main: #FFD54F;
+    --theme-dark: #FFA000;
+    --theme-accent: #FFE082;
+    --shadow-color: rgba(255, 160, 0, 0.3);
+    --bg-gradient: linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 50%, #FFF8E1 100%);
+}
+
+/* 粉紅主題 */
+[data-theme="pink"] {
+    --theme-light: #FCE4EC;
+    --theme-main: #F48FB1;
+    --theme-dark: #E91E63;
+    --theme-accent: #F8BBD9;
+    --shadow-color: rgba(233, 30, 99, 0.3);
+    --bg-gradient: linear-gradient(135deg, #FCE4EC 0%, #F8BBD9 50%, #FFE4EC 100%);
+}
+
+/* 粉綠主題 */
+[data-theme="green"] {
+    --theme-light: #E8F5E9;
+    --theme-main: #81C784;
+    --theme-dark: #388E3C;
+    --theme-accent: #A5D6A7;
+    --shadow-color: rgba(56, 142, 60, 0.3);
+    --bg-gradient: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #DCEDC8 100%);
 }
 
 /* 基礎樣式 */
@@ -29,7 +65,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(135deg, var(--pink-light) 0%, var(--purple-light) 50%, var(--mint-light) 100%);
+    background: var(--bg-gradient);
     background-attachment: fixed;
     overflow-x: hidden;
 }
@@ -43,9 +79,9 @@ body {
     padding: 30px;
     background: rgba(255, 255, 255, 0.85);
     border-radius: 30px;
-    box-shadow: 
+    box-shadow:
         0 20px 60px var(--shadow-color),
-        0 0 0 5px var(--pink-main),
+        0 0 0 5px var(--theme-main),
         inset 0 0 30px rgba(255, 143, 171, 0.1);
     backdrop-filter: blur(10px);
 }
@@ -58,19 +94,41 @@ body {
     pointer-events: none;
 }
 
-.sparkle-1 { top: 20px; left: 30px; animation-delay: 0s; }
-.sparkle-2 { top: 50px; right: 40px; animation-delay: 0.5s; }
-.sparkle-3 { bottom: 80px; left: 25px; animation-delay: 1s; }
-.sparkle-4 { bottom: 40px; right: 35px; animation-delay: 1.5s; }
+.sparkle-1 {
+    top: 20px;
+    left: 30px;
+    animation-delay: 0s;
+}
+
+.sparkle-2 {
+    top: 50px;
+    right: 40px;
+    animation-delay: 0.5s;
+}
+
+.sparkle-3 {
+    bottom: 80px;
+    left: 25px;
+    animation-delay: 1s;
+}
+
+.sparkle-4 {
+    bottom: 40px;
+    right: 35px;
+    animation-delay: 1.5s;
+}
 
 @keyframes sparkle {
-    0%, 100% { 
-        transform: scale(1) rotate(0deg); 
-        opacity: 0.7; 
+
+    0%,
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.7;
     }
-    50% { 
-        transform: scale(1.3) rotate(15deg); 
-        opacity: 1; 
+
+    50% {
+        transform: scale(1.3) rotate(15deg);
+        opacity: 1;
     }
 }
 
@@ -78,17 +136,24 @@ body {
 .title {
     font-size: 2.5rem;
     font-weight: 800;
-    color: var(--pink-dark);
-    text-shadow: 
+    color: var(--theme-dark);
+    text-shadow:
         2px 2px 0 var(--white),
-        4px 4px 0 var(--pink-main);
+        4px 4px 0 var(--theme-main);
     margin-bottom: 20px;
     animation: bounce 2s ease-in-out infinite;
 }
 
 @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
 }
 
 /* 分數板 */
@@ -103,9 +168,9 @@ body {
     flex-direction: column;
     align-items: center;
     padding: 15px 25px;
-    background: linear-gradient(135deg, var(--yellow-light), var(--pink-light));
+    background: linear-gradient(135deg, var(--theme-light), var(--white));
     border-radius: 20px;
-    border: 3px solid var(--pink-main);
+    border: 3px solid var(--theme-main);
     box-shadow: 0 5px 15px var(--shadow-color);
 }
 
@@ -119,7 +184,7 @@ body {
 .score-value {
     font-size: 1.8rem;
     font-weight: 800;
-    color: var(--pink-dark);
+    color: var(--theme-dark);
 }
 
 /* Canvas 容器 */
@@ -127,9 +192,9 @@ body {
     position: relative;
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 
+    box-shadow:
         0 10px 30px var(--shadow-color),
-        inset 0 0 0 5px var(--pink-main);
+        inset 0 0 0 5px var(--theme-main);
 }
 
 #gameCanvas {
@@ -165,7 +230,7 @@ body {
 
 .overlay-content h2 {
     font-size: 2rem;
-    color: var(--pink-dark);
+    color: var(--theme-dark);
     margin-bottom: 15px;
 }
 
@@ -196,9 +261,9 @@ body {
 
 .speed-btn {
     padding: 8px 15px;
-    border: 2px solid var(--pink-main);
+    border: 2px solid var(--theme-main);
     background: white;
-    color: var(--pink-dark);
+    color: var(--theme-dark);
     border-radius: 15px;
     font-family: 'Nunito', sans-serif;
     font-weight: 700;
@@ -207,12 +272,12 @@ body {
 }
 
 .speed-btn:hover {
-    background: var(--pink-light);
+    background: var(--theme-light);
     transform: translateY(-2px);
 }
 
 .speed-btn.active {
-    background: var(--pink-main);
+    background: var(--theme-main);
     color: white;
     box-shadow: 0 4px 10px var(--shadow-color);
 }
@@ -224,13 +289,13 @@ body {
     font-weight: 700;
     font-family: 'Nunito', sans-serif;
     color: var(--white);
-    background: linear-gradient(135deg, var(--pink-main), var(--pink-dark));
+    background: linear-gradient(135deg, var(--theme-main), var(--theme-dark));
     border: none;
     border-radius: 50px;
     cursor: pointer;
-    box-shadow: 
+    box-shadow:
         0 8px 25px var(--shadow-color),
-        0 4px 0 0 #E04A6E;
+        0 4px 0 0 var(--theme-dark);
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
@@ -243,7 +308,7 @@ body {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
     transition: left 0.5s ease;
 }
 
@@ -253,25 +318,25 @@ body {
 
 .start-btn:hover {
     transform: translateY(-3px);
-    box-shadow: 
+    box-shadow:
         0 12px 35px var(--shadow-color),
-        0 6px 0 0 #E04A6E;
+        0 6px 0 0 var(--theme-dark);
 }
 
 .start-btn:active {
     transform: translateY(2px);
-    box-shadow: 
+    box-shadow:
         0 4px 15px var(--shadow-color),
-        0 2px 0 0 #E04A6E;
+        0 2px 0 0 var(--theme-dark);
 }
 
 /* 控制提示 */
 .controls-hint {
     margin-top: 20px;
     padding: 12px 25px;
-    background: var(--purple-light);
+    background: var(--theme-light);
     border-radius: 15px;
-    border: 2px dashed var(--purple-main);
+    border: 2px dashed var(--theme-accent);
 }
 
 .controls-hint p {
@@ -320,32 +385,32 @@ body {
         padding: 20px;
         margin: 10px;
     }
-    
+
     .title {
         font-size: 1.8rem;
     }
-    
+
     #gameCanvas {
         width: 300px;
         height: 300px;
     }
-    
+
     .score-board {
         gap: 15px;
     }
-    
+
     .score-item {
         padding: 10px 18px;
     }
-    
+
     .score-value {
         font-size: 1.4rem;
     }
-    
+
     .controls-hint {
         display: none;
     }
-    
+
     .mobile-controls {
         display: flex;
     }
@@ -353,9 +418,17 @@ body {
 
 /* 遊戲結束動畫 */
 @keyframes gameOver {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .game-over-animation {
@@ -364,9 +437,17 @@ body {
 
 /* 吃到食物效果 */
 @keyframes eatFood {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.15); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.15);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .eat-animation {
