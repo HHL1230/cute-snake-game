@@ -61,6 +61,10 @@ python -m venv .venv
 | `F11` | 全螢幕切換 |
 | `Enter` | 標題畫面開始 / 結束後回標題 |
 
+> **視窗焦點**：遊戲啟動時會自動把視窗帶到最前面並取得鍵盤焦點。
+> 若切換到其他視窗，遊戲會自動暫停並顯示 `NO KEYBOARD FOCUS`，
+> 此時滑鼠指標會恢復顯示，**點一下遊戲視窗**即可繼續操作。
+
 ---
 
 ## 🕹️ 遊戲系統
@@ -111,10 +115,13 @@ sky-strike-1942/
 │   ├── stages.py           5 關的波次腳本與頭目設定
 │   ├── hud.py              右側資訊面板與畫面文字
 │   └── app.py              主迴圈、狀態機、碰撞、生成器
-├── tests/smoke_test.py     無視窗煙霧測試（跑完 5 關 + 頭目 + Game Over）
+├── tests/
+│   ├── smoke_test.py       無視窗煙霧測試（跑完 5 關 + 頭目 + Game Over）
+│   └── input_test.py       輸入測試（移動 / 射擊 / 重生後 / 焦點處理）
 └── tools/
     ├── screenshot.py       無視窗截圖工具
     ├── bench.py            效能量測
+    ├── input_check.py      真實視窗輸入診斷（按鍵、焦點、FPS）
     └── window_check.py     真實視窗 / 音效裝置自我檢查
 ```
 
@@ -135,6 +142,9 @@ sky-strike-1942/
 # 無視窗跑完 5 關、頭目戰、道具、炸彈、死亡與 Game Over 流程
 .\.venv\Scripts\python.exe tests\smoke_test.py
 
+# 輸入測試：移動、射擊、死亡重生後、事件驅動備援、視窗焦點
+.\.venv\Scripts\python.exe tests\input_test.py
+
 # 效能量測（最終關重載場景）
 .\.venv\Scripts\python.exe tools\bench.py
 
@@ -144,6 +154,28 @@ sky-strike-1942/
 
 實測（Python 3.14 + pygame-ce 2.5.7）：每幀 CPU 約 0.8 ms（p95 1.3 ms），
 同時 200+ 精靈仍有充足餘裕；實際視窗執行穩定 60 FPS。
+
+---
+
+## 🛠️ 疑難排解
+
+**按鍵沒反應（不能移動 / 不能射擊）**
+
+多半是遊戲視窗沒有鍵盤焦點（例如視窗被主控台或其他程式擋在後面）。
+本專案已針對此情況處理：
+
+- 啟動時自動把遊戲視窗帶到最前面並取得焦點
+- 一旦失去焦點會自動暫停，畫面顯示 `NO KEYBOARD FOCUS`，並恢復滑鼠指標
+- **點一下遊戲視窗**即可立刻恢復操作
+
+若仍有問題，可用診斷工具即時觀察按鍵與焦點狀態：
+
+```powershell
+.\.venv\Scripts\python.exe tools\input_check.py 20
+```
+
+輸出的 `held=`（key.get_pressed）、`keydown=`（事件）、`focus=`（鍵盤焦點）
+可判斷按鍵是否真的送達遊戲。
 
 ---
 

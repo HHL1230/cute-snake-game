@@ -63,6 +63,10 @@ class Game:
         self.stage_kills = 0
         self.stage_shots_hit = 0
 
+        # 輸入狀態：事件驅動的按鍵集合，與 key.get_pressed() 互為備援
+        self.held: set[int] = set()
+        self.has_focus = True
+
         self.background = Background(STAGES[0]["theme"], STAGES[0]["scroll"], seed=1)
         self.title_bg = Background("ocean", 60.0, seed=7)
         self.title_planes: list[list[float]] = []
@@ -224,8 +228,28 @@ class Game:
         if e.type == pygame.QUIT:
             self.running = False
             return
+
+        # --- 視窗焦點：失焦時清空按鍵並顯示提示，避免「按鍵無反應」 ---
+        if e.type == getattr(pygame, "WINDOWFOCUSLOST", -1):
+            self.has_focus = False
+            self.held.clear()
+            pygame.mouse.set_visible(True)
+            return
+        if e.type == getattr(pygame, "WINDOWFOCUSGAINED", -1):
+            self.has_focus = True
+            self.held.clear()
+            pygame.mouse.set_visible(False)
+            return
+
+        if e.type == pygame.KEYUP:
+            self.held.discard(e.key)
+            return
         if e.type != pygame.KEYDOWN:
             return
+
+        # 收到按鍵代表確實有鍵盤焦點（保險機制）
+        self.has_focus = True
+        self.held.add(e.key)
 
         if e.key == pygame.K_ESCAPE:
             if self.state in ("play", "boss", "boss_alarm") and not self.paused:
@@ -286,6 +310,9 @@ class Game:
     # 更新
     # ==================================================================
     def update(self, dt: float) -> None:
+        if not self.has_focus and self.state not in ("title",):
+            self.background.update(dt * 0.15)
+            return
         self.state_t += dt
         if self.shake > 0:
             self.shake = max(0.0, self.shake - dt)
@@ -521,6 +548,15 @@ class Game:
                 surf.blit(sp.image, sp.rect)
             self._draw_overlays(surf)
 
+        if not self.has_focus:
+            a = self.assets
+            self.hud.draw_banner(surf, 150)
+            self.hud.draw_center_text(surf, [
+                ("NO KEYBOARD FOCUS", a.font, S.YELLOW),
+                ("請點擊遊戲視窗", a.font_cjk, S.WHITE),
+                ("以繼續操作", a.font_cjk_small, S.SILVER),
+            ])
+
         self.screen.fill(S.BLACK)
         ox = oy = 0
         if self.shake > 0:
@@ -631,6 +667,11 @@ class Game:
             dt = min(self.clock.tick(S.FPS) / 1000.0, 1 / 30)
             for e in pygame.event.get():
                 self.handle_event(e)
+            # 只用 get_focused() 來「恢復」焦點，避免誤判造成永久凍結
+            if not self.has_focus and pygame.key.get_focused():
+                self.has_focus = True
+                self.held.clear()
+                pygame.mouse.set_visible(False)
             self.update(dt)
             self.draw()
         save_highscore(self.highscore)

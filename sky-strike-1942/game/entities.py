@@ -189,8 +189,13 @@ class Player(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     def update(self, dt: float, game) -> None:  # noqa: ANN001
         keys = pygame.key.get_pressed()
-        dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
-        dy = (keys[pygame.K_DOWN] or keys[pygame.K_s]) - (keys[pygame.K_UP] or keys[pygame.K_w])
+        held = getattr(game, "held", ())
+
+        def down(*codes: int) -> bool:
+            return any(keys[c] for c in codes) or any(c in held for c in codes)
+
+        dx = int(down(pygame.K_RIGHT, pygame.K_d)) - int(down(pygame.K_LEFT, pygame.K_a))
+        dy = int(down(pygame.K_DOWN, pygame.K_s)) - int(down(pygame.K_UP, pygame.K_w))
         move = pygame.Vector2(dx, dy)
         if move.length_squared() > 0:
             move = move.normalize()
@@ -198,7 +203,7 @@ class Player(pygame.sprite.Sprite):
         self.pos.x = clamp(self.pos.x, 20, S.PLAY_W - 20)
         self.pos.y = clamp(self.pos.y, 30, S.SCREEN_H - 24)
 
-        self.firing = bool(keys[pygame.K_z] or keys[pygame.K_SPACE] or keys[pygame.K_j])
+        self.firing = down(pygame.K_z, pygame.K_SPACE, pygame.K_j)
         self.fire_timer -= dt
         if self.firing and self.fire_timer <= 0 and self.rolling <= 0:
             self.fire(game)
