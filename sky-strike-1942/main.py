@@ -24,12 +24,15 @@ def grab_focus(timeout: float = 2.0) -> None:
     造成「畫面有動但按鍵沒反應」。
     """
     deadline = time.time() + timeout
+    aggressive = False
     while True:
         pygame.event.pump()
-        if focus_window() or has_keyboard_focus():
+        if focus_window(aggressive=aggressive) or has_keyboard_focus():
             return
         if time.time() >= deadline:
             return
+        # 前半段用溫和手法，仍失敗才改用最小化/還原強制取得前景
+        aggressive = time.time() > deadline - timeout / 2
         time.sleep(0.1)
 
 

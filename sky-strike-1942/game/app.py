@@ -84,11 +84,15 @@ class Game:
         # 啟動後的前幾秒主動搶回前景（從 run.bat / 主控台啟動時很常需要）
         self._focus_grab_t = 3.0 if self.track_os_focus else 0.0
         self._focus_grab_cd = 0.0
+        self._motion_grab_cd = 0.0
         # 最近收到真實按鍵事件的殘留時間：有按鍵進來就代表真的有焦點，
         # 用來擋掉 get_focused() 誤判造成的永久凍結
         self._key_evt_t = 0.0
+        # 滑鼠指標顯示狀態（None 代表尚未套用，第一次一定會實際設定）
+        self._cursor_hidden: bool | None = None
         if self.track_os_focus:
             self.has_focus = has_keyboard_focus()
+        self._apply_cursor()
 
         # 畫面中央的短暫提示（例如炸彈 / 翻滾用完）
         self.notice: tuple[str, str] | None = None
@@ -274,14 +278,14 @@ class Game:
             self.has_focus = False
             self._unfocus_t = 1.0
             self.held.clear()
-            pygame.mouse.set_visible(True)
+            self._apply_cursor()
             return
         if e.type == getattr(pygame, "WINDOWFOCUSGAINED", -1):
             self.has_focus = True
             self._unfocus_t = 0.0
             self._focus_grab_t = 0.0
             self.held.clear()
-            pygame.mouse.set_visible(False)
+            self._apply_cursor()
             return
 
         if e.type == pygame.KEYUP:
@@ -294,7 +298,13 @@ class Game:
             if not self.has_focus:
                 self.has_focus = True
                 self.held.clear()
-            pygame.mouse.set_visible(False)
+            self._apply_cursor()
+            return
+        # 滑鼠移到遊戲視窗上（代表玩家正想操作遊戲）也主動把焦點搶回來
+        if e.type in (pygame.MOUSEMOTION, getattr(pygame, "WINDOWENTER", -1)):
+            if not self.has_focus and self._motion_grab_cd <= 0.0:
+                self._motion_grab_cd = 0.6
+                focus_window()
             return
         if e.type != pygame.KEYDOWN:
             return
@@ -303,6 +313,7 @@ class Game:
         self.has_focus = True
         self._unfocus_t = 0.0
         self._key_evt_t = 1.5
+        self._apply_cursor()
         self.held.add(e.key)
 
         # --- 離開遊戲確認（Q 開啟，避免遊戲中誤按直接結束）---
@@ -938,6 +949,22 @@ class Game:
             ])
 
     # ==================================================================
+    def _apply_cursor(self) -> None:
+        """滑鼠指標只在有鍵盤焦點時隱藏。
+
+        這是衍生狀態而不是「轉換時才做一次」：失焦提示要玩家點視窗，
+        若此時指標還是隱藏的，玩家根本看不到游標在哪裡可以點。
+        """
+        hidden = bool(self.has_focus)
+        if hidden == self._cursor_hidden:
+            return
+        self._cursor_hidden = hidden
+        try:
+            pygame.mouse.set_visible(not hidden)
+        except pygame.error:
+            pass
+
+    # ==================================================================
     def _sync_focus(self, dt: float) -> None:
         """把 has_focus 與作業系統的真實鍵盤焦點同步，並在啟動初期主動搶回前景。
 
@@ -949,6 +976,7 @@ class Game:
             return
 
         self._key_evt_t = max(0.0, self._key_evt_t - dt)
+        self._motion_grab_cd = max(0.0, self._motion_grab_cd - dt)
         real = has_keyboard_focus()
         if real:
             self._unfocus_t = 0.0
@@ -956,7 +984,7 @@ class Game:
             if not self.has_focus:
                 self.has_focus = True
                 self.held.clear()
-                pygame.mouse.set_visible(False)
+            self._apply_cursor()
             return
 
         # 尚未取得焦點：啟動後 3 秒內每 0.5 秒主動嘗試搶回前景
@@ -965,7 +993,7 @@ class Game:
             self._focus_grab_cd -= dt
             if self._focus_grab_cd <= 0.0:
                 self._focus_grab_cd = 0.5
-                focus_window()
+                focus_window(aggressive=self._focus_grab_t < 1.5)
 
         # 還在收到真實按鍵事件時，代表 get_focused() 誤判，不要凍結遊戲
         if self._key_evt_t > 0.0:
@@ -976,7 +1004,7 @@ class Game:
         if self._unfocus_t > 0.3 and self.has_focus:
             self.has_focus = False
             self.held.clear()
-            pygame.mouse.set_visible(True)
+        self._apply_cursor()
 
     # ==================================================================
     def run(self) -> None:

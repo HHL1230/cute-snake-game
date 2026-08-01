@@ -39,24 +39,41 @@ try {
     }
     else {
         Write-Host "[2/2] 啟動 Sky Strike 1942 ..." -ForegroundColor Green
+        if (-not ("WinFg" -as [type])) {
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class WinFg {
+    [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+"@
+        }
+        $console = [IntPtr]::Zero
+        try { $console = [WinFg]::GetConsoleWindow() } catch { }
+
         # 以子行程啟動，並把「可切換到前景」的權限授權給它，
         # 否則 Windows 會擋下遊戲視窗搶前景，導致視窗停在主控台後面、按鍵全無反應。
         $proc = Start-Process -FilePath $python -ArgumentList "main.py" -NoNewWindow -PassThru
+        try { [void][WinFg]::AllowSetForegroundWindow($proc.Id) } catch { }
+
+        # 遊戲執行期間把主控台視窗收起來，避免它一直霸佔前景把按鍵吃掉
         try {
-            if (-not ("FgPerm" -as [type])) {
-                Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class FgPerm {
-    [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
-}
-"@
+            if ($console -ne [IntPtr]::Zero) {
+                Start-Sleep -Milliseconds 1200
+                [void][WinFg]::ShowWindow($console, 6)   # SW_MINIMIZE
             }
-            [void][FgPerm]::AllowSetForegroundWindow($proc.Id)
         }
         catch { }
+
         $proc.WaitForExit()
         $exitCode = $proc.ExitCode
+
+        try {
+            if ($console -ne [IntPtr]::Zero) { [void][WinFg]::ShowWindow($console, 9) }  # SW_RESTORE
+        }
+        catch { }
     }
 
     if ($null -eq $exitCode) { $exitCode = 0 }

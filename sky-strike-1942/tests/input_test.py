@@ -284,15 +284,22 @@ def main() -> int:
 
     focus_calls = {"n": 0}
     os_focus = {"v": False}
+    cursor = {"visible": None}
     orig_has = app_mod.has_keyboard_focus
     orig_focus = app_mod.focus_window
+    orig_set_visible = pygame.mouse.set_visible
     app_mod.has_keyboard_focus = lambda: os_focus["v"]  # type: ignore[assignment]
 
-    def fake_focus() -> bool:
+    def fake_focus(*args, **kwargs) -> bool:
         focus_calls["n"] += 1
         return os_focus["v"]
 
+    def fake_set_visible(v):  # noqa: ANN001, ANN202
+        cursor["visible"] = bool(v)
+        return orig_set_visible(v)
+
     app_mod.focus_window = fake_focus  # type: ignore[assignment]
+    pygame.mouse.set_visible = fake_set_visible  # type: ignore[assignment]
     try:
         game2 = Game(screen)
         game2.track_os_focus = True
@@ -308,6 +315,8 @@ def main() -> int:
             game2.update(1 / 60)
         check("沒有鍵盤焦點時 has_focus 會轉為 False", not game2.has_focus)
         check("沒有鍵盤焦點時會主動嘗試搶回前景", focus_calls["n"] >= 2)
+        check("沒有鍵盤焦點時滑鼠指標必須看得見（才點得到視窗）",
+              cursor["visible"] is True)
 
         x0 = game2.player.pos.x
         install({pygame.K_RIGHT})
@@ -321,6 +330,7 @@ def main() -> int:
         os_focus["v"] = True
         game2._sync_focus(1 / 60)
         check("重新取得鍵盤焦點後自動恢復", game2.has_focus)
+        check("恢復焦點後滑鼠指標重新隱藏", cursor["visible"] is False)
         for _ in range(20):
             game2.update(1 / 60)
         check("恢復後可以移動", game2.player.pos.x > x0 + 1)
@@ -345,9 +355,28 @@ def main() -> int:
         game2.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1,
                                               pos=(10, 10)))
         check("點擊視窗可取回焦點", game2.has_focus)
+
+        # 滑鼠移到視窗上也會主動嘗試搶回焦點
+        game2.has_focus = False
+        game2._motion_grab_cd = 0.0
+        n_before = focus_calls["n"]
+        game2.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(20, 20),
+                                              rel=(1, 1), buttons=(0, 0, 0)))
+        check("滑鼠移到視窗上會嘗試搶回焦點", focus_calls["n"] > n_before)
+
+        # 一開始就沒有焦點時，指標必須是可見的（否則玩家看不到游標可點）
+        os_focus["v"] = False
+        game4 = Game(screen)
+        game4.track_os_focus = True
+        cursor["visible"] = None
+        game4.has_focus = False
+        game4._cursor_hidden = None
+        game4._apply_cursor()
+        check("啟動時就沒有焦點也會顯示滑鼠指標", cursor["visible"] is True)
     finally:
         app_mod.has_keyboard_focus = orig_has  # type: ignore[assignment]
         app_mod.focus_window = orig_focus  # type: ignore[assignment]
+        pygame.mouse.set_visible = orig_set_visible  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
     print("10. 所有控制鍵總覽")

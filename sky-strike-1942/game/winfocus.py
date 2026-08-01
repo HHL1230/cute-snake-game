@@ -51,8 +51,12 @@ def window_handle():
     return hwnd or None
 
 
-def focus_window(hwnd=None) -> bool:
-    """把遊戲視窗帶到前景並取得鍵盤焦點。回傳是否確定成功。"""
+def focus_window(hwnd=None, aggressive: bool = False) -> bool:
+    """把遊戲視窗帶到前景並取得鍵盤焦點。回傳是否確定成功。
+
+    aggressive=True 時，若一般手法失敗會再用「最小化後還原」的方式強制取得前景
+    （Windows 對還原中的視窗會放行），代價是畫面會閃一下。
+    """
     if not sys.platform.startswith("win"):
         return False
     hwnd = hwnd or window_handle()
@@ -79,20 +83,32 @@ def focus_window(hwnd=None) -> bool:
 
         u.ShowWindow(hwnd, 5)  # SW_SHOW
 
-        fg = u.GetForegroundWindow()
-        cur = k.GetCurrentThreadId()
-        tgt = u.GetWindowThreadProcessId(fg, None) if fg else 0
-        attached = bool(tgt) and tgt != cur and bool(u.AttachThreadInput(tgt, cur, True))
-        try:
-            u.BringWindowToTop(hwnd)
-            u.SetForegroundWindow(hwnd)
-            u.SetActiveWindow(hwnd)
-            u.SetFocus(hwnd)
-        finally:
-            if attached:
-                u.AttachThreadInput(tgt, cur, False)
+        def _try_switch() -> bool:
+            fg = u.GetForegroundWindow()
+            if fg == hwnd.value:
+                return True
+            cur = k.GetCurrentThreadId()
+            tgt = u.GetWindowThreadProcessId(fg, None) if fg else 0
+            attached = bool(tgt) and tgt != cur and bool(u.AttachThreadInput(tgt, cur, True))
+            try:
+                u.BringWindowToTop(hwnd)
+                u.SetForegroundWindow(hwnd)
+                u.SetActiveWindow(hwnd)
+                u.SetFocus(hwnd)
+            finally:
+                if attached:
+                    u.AttachThreadInput(tgt, cur, False)
+            return bool(u.GetForegroundWindow() == hwnd.value)
 
-        return bool(u.GetForegroundWindow() == hwnd.value)
+        if _try_switch():
+            return True
+
+        if aggressive:
+            # 最小化再還原：Windows 允許正在還原的視窗取得前景
+            u.ShowWindow(hwnd, 6)   # SW_MINIMIZE
+            u.ShowWindow(hwnd, 9)   # SW_RESTORE
+            return _try_switch()
+        return False
     except Exception:  # noqa: BLE001 - API 失敗時不影響遊戲
         return False
 
