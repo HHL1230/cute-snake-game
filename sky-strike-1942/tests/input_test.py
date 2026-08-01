@@ -481,6 +481,46 @@ def main() -> int:
     check("確認畫面 Y 離開", not game3.running)
     install(set())
 
+    # ------------------------------------------------------------------
+    print("\n11) 中文輸入法防護：SDL 文字輸入必須保持關閉")
+    # 這是「所有控制鍵失效」的真正元凶：SDL2 建立視窗後預設開啟文字輸入，
+    # 中文輸入法會攔截按鍵去組字，pygame 因此完全收不到 KEYDOWN。
+    import game.app as app_mod
+    import game.winfocus as wf
+
+    real_stop = pygame.key.stop_text_input
+    calls: list[int] = []
+    pygame.key.stop_text_input = lambda: (calls.append(1), real_stop())[1]  # type: ignore[assignment]
+    try:
+        check("winfocus.disable_text_input() 會呼叫 SDL", wf.disable_text_input())
+        check("  且確實呼叫到 stop_text_input", len(calls) == 1)
+
+        calls.clear()
+        game4 = Game(screen)
+        check("建立 Game 時關閉文字輸入", len(calls) >= 1)
+
+        # set_mode 會重新開啟文字輸入，切換全螢幕後必須再關一次
+        calls.clear()
+        game4.toggle_fullscreen()
+        check("進入全螢幕後重新關閉文字輸入", len(calls) >= 1)
+        calls.clear()
+        game4.toggle_fullscreen()
+        check("離開全螢幕後重新關閉文字輸入", len(calls) >= 1)
+
+        # 重新取得焦點時 SDL 可能恢復文字輸入
+        calls.clear()
+        game4.has_focus = False
+        game4.track_os_focus = True
+        real_focus = app_mod.has_keyboard_focus
+        app_mod.has_keyboard_focus = lambda: True  # type: ignore[assignment]
+        try:
+            game4._sync_focus(1 / 60)
+        finally:
+            app_mod.has_keyboard_focus = real_focus  # type: ignore[assignment]
+        check("重新取得焦點後關閉文字輸入", game4.has_focus and len(calls) >= 1)
+    finally:
+        pygame.key.stop_text_input = real_stop  # type: ignore[assignment]
+
     print("\nALL INPUT TESTS PASSED")
     pygame.quit()
     return 0

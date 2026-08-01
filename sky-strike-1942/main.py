@@ -14,7 +14,7 @@ import pygame
 
 from game import settings as S
 from game.app import Game
-from game.winfocus import focus_window, has_keyboard_focus
+from game.winfocus import disable_text_input, focus_window, has_keyboard_focus
 
 
 def grab_focus(timeout: float = 2.0) -> None:
@@ -47,6 +47,8 @@ def main() -> int:
 
     screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
     pygame.display.set_caption(S.TITLE)
+    # 必須在建立視窗後立刻關閉：否則中文輸入法會吃掉所有按鍵
+    disable_text_input()
     pygame.mouse.set_visible(False)
     grab_focus()
 

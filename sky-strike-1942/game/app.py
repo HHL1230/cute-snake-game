@@ -17,7 +17,7 @@ from .gfx import Assets
 from .hud import Hud
 from .stages import STAGES
 from .utils import load_highscore, save_highscore
-from .winfocus import focus_window, has_keyboard_focus
+from .winfocus import disable_text_input, focus_window, has_keyboard_focus
 
 
 class Game:
@@ -32,6 +32,8 @@ class Game:
         self.hud = Hud(self.assets)
         self.clock = pygame.time.Clock()
         self.running = True
+        # 保險：即使不是從 main.py 進來（測試、其他進入點）也要關閉文字輸入
+        disable_text_input()
 
         self.highscore = load_highscore()
         self.total_stages = len(STAGES)
@@ -792,6 +794,8 @@ class Game:
         else:
             self.screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
             self._reposition_window(None, None)
+        # set_mode 會重新開啟 SDL 文字輸入，不關掉的話中文輸入法會再次吃掉按鍵
+        disable_text_input()
 
     @staticmethod
     def _desktop_size() -> tuple[int, int]:
@@ -984,6 +988,8 @@ class Game:
             if not self.has_focus:
                 self.has_focus = True
                 self.held.clear()
+                # 重新取得焦點時 SDL 可能一併恢復文字輸入，再關一次
+                disable_text_input()
             self._apply_cursor()
             return
 
