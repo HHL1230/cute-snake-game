@@ -31,16 +31,36 @@ try {
 
     if (-not (Test-Path $python)) { throw "虛擬環境建立失敗，找不到 $python" }
 
+    $exitCode = 0
     if ($SelfCheck) {
         Write-Host "[自我檢查] 執行 tools\window_check.py ..." -ForegroundColor Cyan
         & $python -u tools\window_check.py
+        $exitCode = $LASTEXITCODE
     }
     else {
         Write-Host "[2/2] 啟動 Sky Strike 1942 ..." -ForegroundColor Green
-        & $python main.py
+        # 以子行程啟動，並把「可切換到前景」的權限授權給它，
+        # 否則 Windows 會擋下遊戲視窗搶前景，導致視窗停在主控台後面、按鍵全無反應。
+        $proc = Start-Process -FilePath $python -ArgumentList "main.py" -NoNewWindow -PassThru
+        try {
+            if (-not ("FgPerm" -as [type])) {
+                Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class FgPerm {
+    [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
+}
+"@
+            }
+            [void][FgPerm]::AllowSetForegroundWindow($proc.Id)
+        }
+        catch { }
+        $proc.WaitForExit()
+        $exitCode = $proc.ExitCode
     }
 
-    if ($LASTEXITCODE -ne 0) { throw "程式以非零狀態結束 (exit=$LASTEXITCODE)" }
+    if ($null -eq $exitCode) { $exitCode = 0 }
+    if ($exitCode -ne 0) { throw "程式以非零狀態結束 (exit=$exitCode)" }
 }
 catch {
     Write-Host ""

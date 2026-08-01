@@ -278,6 +278,180 @@ def main() -> int:
     game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
     check("標題畫面按 Q 直接離開", not game.running and not game.confirm_quit)
 
+    # ------------------------------------------------------------------
+    print("9. 視窗未取得鍵盤焦點時會顯示提示並主動搶回前景")
+    import game.app as app_mod
+
+    focus_calls = {"n": 0}
+    os_focus = {"v": False}
+    orig_has = app_mod.has_keyboard_focus
+    orig_focus = app_mod.focus_window
+    app_mod.has_keyboard_focus = lambda: os_focus["v"]  # type: ignore[assignment]
+
+    def fake_focus() -> bool:
+        focus_calls["n"] += 1
+        return os_focus["v"]
+
+    app_mod.focus_window = fake_focus  # type: ignore[assignment]
+    try:
+        game2 = Game(screen)
+        game2.track_os_focus = True
+        game2.has_focus = True
+        game2._focus_grab_t = 3.0
+        game2._focus_grab_cd = 0.0
+        game2._unfocus_t = 0.0
+        enter_play(game2)
+        install(set())
+
+        for _ in range(60):
+            game2._sync_focus(1 / 60)
+            game2.update(1 / 60)
+        check("沒有鍵盤焦點時 has_focus 會轉為 False", not game2.has_focus)
+        check("沒有鍵盤焦點時會主動嘗試搶回前景", focus_calls["n"] >= 2)
+
+        x0 = game2.player.pos.x
+        install({pygame.K_RIGHT})
+        for _ in range(30):
+            game2._sync_focus(1 / 60)
+            game2.update(1 / 60)
+        check("沒有鍵盤焦點時遊戲凍結（不會偷偷把命耗光）",
+              abs(game2.player.pos.x - x0) < 0.01)
+        game2.draw()  # 確認失焦提示可正常繪製
+
+        os_focus["v"] = True
+        game2._sync_focus(1 / 60)
+        check("重新取得鍵盤焦點後自動恢復", game2.has_focus)
+        for _ in range(20):
+            game2.update(1 / 60)
+        check("恢復後可以移動", game2.player.pos.x > x0 + 1)
+        install(set())
+
+        # get_focused() 誤判時，只要仍收得到按鍵事件就不可凍結遊戲
+        os_focus["v"] = False
+        game2.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RIGHT))
+        for _ in range(30):
+            game2._sync_focus(1 / 60)
+        check("收得到按鍵時不因焦點誤判凍結", game2.has_focus)
+        game2.handle_event(pygame.event.Event(pygame.KEYUP, key=pygame.K_RIGHT))
+        for _ in range(150):
+            game2._sync_focus(1 / 60)
+        check("按鍵停止後才依焦點狀態凍結", not game2.has_focus)
+        os_focus["v"] = True
+        game2._sync_focus(1 / 60)
+
+
+        # 點擊視窗也可取回焦點
+        game2.has_focus = False
+        game2.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1,
+                                              pos=(10, 10)))
+        check("點擊視窗可取回焦點", game2.has_focus)
+    finally:
+        app_mod.has_keyboard_focus = orig_has  # type: ignore[assignment]
+        app_mod.focus_window = orig_focus  # type: ignore[assignment]
+
+    # ------------------------------------------------------------------
+    print("10. 所有控制鍵總覽")
+    install(set())
+    game3 = Game(screen)
+
+    # 標題畫面：ENTER / KP_ENTER / Z / SPACE 都能開始遊戲
+    for key, label in ((pygame.K_RETURN, "ENTER"), (pygame.K_KP_ENTER, "KP_ENTER"),
+                       (pygame.K_z, "Z"), (pygame.K_SPACE, "SPACE")):
+        game3.state = "title"
+        game3.state_t = 0.0
+        game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"標題畫面 {label} 可開始遊戲", game3.state == "intro")
+
+    enter_play(game3)
+
+    # 移動：方向鍵 / WASD / 數字鍵盤
+    move_keys = (
+        (pygame.K_RIGHT, "RIGHT", 1, 0), (pygame.K_LEFT, "LEFT", -1, 0),
+        (pygame.K_UP, "UP", 0, -1), (pygame.K_DOWN, "DOWN", 0, 1),
+        (pygame.K_d, "D", 1, 0), (pygame.K_a, "A", -1, 0),
+        (pygame.K_w, "W", 0, -1), (pygame.K_s, "S", 0, 1),
+        (pygame.K_KP6, "KP6", 1, 0), (pygame.K_KP4, "KP4", -1, 0),
+        (pygame.K_KP8, "KP8", 0, -1), (pygame.K_KP2, "KP2", 0, 1),
+        (pygame.K_KP5, "KP5", 0, 1),
+        (pygame.K_KP7, "KP7", -1, -1), (pygame.K_KP9, "KP9", 1, -1),
+        (pygame.K_KP1, "KP1", -1, 1), (pygame.K_KP3, "KP3", 1, 1),
+    )
+    for key, label, ex, ey in move_keys:
+        game3.player.pos.update(S.PLAY_W / 2, S.SCREEN_H / 2)
+        start = pygame.Vector2(game3.player.pos)
+        install({key})
+        step(game3, 12)
+        d = pygame.Vector2(game3.player.pos) - start
+        ok = ((ex == 0 and abs(d.x) < 0.01) or (ex and d.x * ex > 1)) and \
+             ((ey == 0 and abs(d.y) < 0.01) or (ey and d.y * ey > 1))
+        check(f"移動鍵 {label}", ok)
+        install(set())
+
+    # 射擊：Z / SPACE / J / KP0
+    for key, label in ((pygame.K_z, "Z"), (pygame.K_SPACE, "SPACE"),
+                       (pygame.K_j, "J"), (pygame.K_KP0, "KP0")):
+        game3.player_bullets.empty()
+        game3.player.fire_timer = 0.0
+        install({key})
+        step(game3, 4)
+        check(f"射擊鍵 {label}", len(game3.player_bullets) > 0)
+        install(set())
+    game3.player_bullets.empty()
+
+    # 翻滾：X / K / LSHIFT / RSHIFT
+    for key, label in ((pygame.K_x, "X"), (pygame.K_k, "K"),
+                       (pygame.K_LSHIFT, "LSHIFT"), (pygame.K_RSHIFT, "RSHIFT")):
+        game3.player.rolling = 0.0
+        game3.player.rolls = 3
+        game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"翻滾鍵 {label}", game3.player.rolling > 0 and game3.player.rolls == 2)
+        game3.handle_event(pygame.event.Event(pygame.KEYUP, key=key))
+    game3.player.rolling = 0.0
+
+    # 炸彈：C / L
+    for key, label in ((pygame.K_c, "C"), (pygame.K_l, "L")):
+        game3.player.bombs = 2
+        game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"炸彈鍵 {label}", game3.player.bombs == 1)
+        game3.handle_event(pygame.event.Event(pygame.KEYUP, key=key))
+
+    # 暫停：P（切換）與 ESC（暫停 / 解除）
+    game3.paused = False
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_p))
+    check("暫停鍵 P 可暫停", game3.paused)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_p))
+    check("暫停鍵 P 可解除暫停", not game3.paused)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    check("ESC 可暫停", game3.paused)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    check("ESC 可解除暫停", not game3.paused)
+
+    # 靜音：M
+    before_mute = game3.audio.muted
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_m))
+    check("靜音鍵 M 可切換", game3.audio.muted != before_mute)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_m))
+    check("靜音鍵 M 可切回", game3.audio.muted == before_mute)
+
+    # 全螢幕：F / F11
+    for key, label in ((pygame.K_f, "F"), (pygame.K_F11, "F11")):
+        game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"全螢幕鍵 {label} 進入全螢幕", game3.fullscreen)
+        game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"全螢幕鍵 {label} 離開全螢幕", not game3.fullscreen)
+
+    # 離開：Q → Y / N
+    game3.running = True
+    game3.confirm_quit = False
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    check("離開鍵 Q 顯示確認", game3.confirm_quit and game3.running)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_n))
+    check("確認畫面 N 取消", not game3.confirm_quit and game3.running)
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    game3.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
+    check("確認畫面 Y 離開", not game3.running)
+    install(set())
+
     print("\nALL INPUT TESTS PASSED")
     pygame.quit()
     return 0

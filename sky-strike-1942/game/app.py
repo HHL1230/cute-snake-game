@@ -17,6 +17,7 @@ from .gfx import Assets
 from .hud import Hud
 from .stages import STAGES
 from .utils import load_highscore, save_highscore
+from .winfocus import focus_window, has_keyboard_focus
 
 
 class Game:
@@ -72,6 +73,22 @@ class Game:
         self.held: set[int] = set()
         self.has_focus = True
         self.confirm_quit = False
+
+        # 真實視窗焦點追蹤：只在真的有視窗時才依作業系統焦點判定，
+        # 這樣「主控台搶走鍵盤焦點」時才會顯示提示，而不是靜靜地吃掉所有按鍵。
+        try:
+            self.track_os_focus = pygame.display.get_driver() != "dummy"
+        except pygame.error:
+            self.track_os_focus = False
+        self._unfocus_t = 0.0
+        # 啟動後的前幾秒主動搶回前景（從 run.bat / 主控台啟動時很常需要）
+        self._focus_grab_t = 3.0 if self.track_os_focus else 0.0
+        self._focus_grab_cd = 0.0
+        # 最近收到真實按鍵事件的殘留時間：有按鍵進來就代表真的有焦點，
+        # 用來擋掉 get_focused() 誤判造成的永久凍結
+        self._key_evt_t = 0.0
+        if self.track_os_focus:
+            self.has_focus = has_keyboard_focus()
 
         # 畫面中央的短暫提示（例如炸彈 / 翻滾用完）
         self.notice: tuple[str, str] | None = None
@@ -255,11 +272,14 @@ class Game:
         # --- 視窗焦點：失焦時清空按鍵並顯示提示，避免「按鍵無反應」 ---
         if e.type == getattr(pygame, "WINDOWFOCUSLOST", -1):
             self.has_focus = False
+            self._unfocus_t = 1.0
             self.held.clear()
             pygame.mouse.set_visible(True)
             return
         if e.type == getattr(pygame, "WINDOWFOCUSGAINED", -1):
             self.has_focus = True
+            self._unfocus_t = 0.0
+            self._focus_grab_t = 0.0
             self.held.clear()
             pygame.mouse.set_visible(False)
             return
@@ -267,11 +287,22 @@ class Game:
         if e.type == pygame.KEYUP:
             self.held.discard(e.key)
             return
+        # 點擊視窗即可取回鍵盤焦點（失焦提示就是叫玩家這樣做）
+        if e.type == pygame.MOUSEBUTTONDOWN:
+            self._unfocus_t = 0.0
+            focus_window()
+            if not self.has_focus:
+                self.has_focus = True
+                self.held.clear()
+            pygame.mouse.set_visible(False)
+            return
         if e.type != pygame.KEYDOWN:
             return
 
         # 收到按鍵代表確實有鍵盤焦點（保險機制）
         self.has_focus = True
+        self._unfocus_t = 0.0
+        self._key_evt_t = 1.5
         self.held.add(e.key)
 
         # --- 離開遊戲確認（Q 開啟，避免遊戲中誤按直接結束）---
@@ -907,16 +938,53 @@ class Game:
             ])
 
     # ==================================================================
+    def _sync_focus(self, dt: float) -> None:
+        """把 has_focus 與作業系統的真實鍵盤焦點同步，並在啟動初期主動搶回前景。
+
+        從主控台 / run.bat 啟動時，SDL 視窗可能一直待在主控台後面而拿不到鍵盤
+        焦點。以前 has_focus 固定從 True 開始，導致遊戲照跑、按鍵卻全部沒反應，
+        而且連「請點擊視窗」的提示都不會出現。
+        """
+        if not self.track_os_focus:
+            return
+
+        self._key_evt_t = max(0.0, self._key_evt_t - dt)
+        real = has_keyboard_focus()
+        if real:
+            self._unfocus_t = 0.0
+            self._focus_grab_t = 0.0
+            if not self.has_focus:
+                self.has_focus = True
+                self.held.clear()
+                pygame.mouse.set_visible(False)
+            return
+
+        # 尚未取得焦點：啟動後 3 秒內每 0.5 秒主動嘗試搶回前景
+        if self._focus_grab_t > 0.0:
+            self._focus_grab_t -= dt
+            self._focus_grab_cd -= dt
+            if self._focus_grab_cd <= 0.0:
+                self._focus_grab_cd = 0.5
+                focus_window()
+
+        # 還在收到真實按鍵事件時，代表 get_focused() 誤判，不要凍結遊戲
+        if self._key_evt_t > 0.0:
+            self._unfocus_t = 0.0
+            return
+
+        self._unfocus_t += dt
+        if self._unfocus_t > 0.3 and self.has_focus:
+            self.has_focus = False
+            self.held.clear()
+            pygame.mouse.set_visible(True)
+
+    # ==================================================================
     def run(self) -> None:
         while self.running:
             dt = min(self.clock.tick(S.FPS) / 1000.0, 1 / 30)
             for e in pygame.event.get():
                 self.handle_event(e)
-            # 只用 get_focused() 來「恢復」焦點，避免誤判造成永久凍結
-            if not self.has_focus and pygame.key.get_focused():
-                self.has_focus = True
-                self.held.clear()
-                pygame.mouse.set_visible(False)
+            self._sync_focus(dt)
             self.update(dt)
             self.draw()
         save_highscore(self.highscore)

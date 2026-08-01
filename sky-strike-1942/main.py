@@ -8,32 +8,29 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 import pygame
 
 from game import settings as S
 from game.app import Game
+from game.winfocus import focus_window, has_keyboard_focus
 
 
-def focus_window() -> None:
-    """把遊戲視窗帶到前景並取得鍵盤焦點（Windows）。
+def grab_focus(timeout: float = 2.0) -> None:
+    """啟動時把遊戲視窗帶到前景，最多重試 timeout 秒。
 
     從主控台/批次檔啟動時，SDL 視窗有時會停在主控台後面而拿不到鍵盤焦點，
-    造成「畫面有動但按鍵沒反應」。這裡用標準的視窗 API 主動聚焦。
+    造成「畫面有動但按鍵沒反應」。
     """
-    try:
-        import ctypes
-
-        hwnd = pygame.display.get_wm_info().get("window")
-        if not hwnd:
+    deadline = time.time() + timeout
+    while True:
+        pygame.event.pump()
+        if focus_window() or has_keyboard_focus():
             return
-        user32 = ctypes.windll.user32
-        user32.ShowWindow(hwnd, 5)          # SW_SHOW
-        user32.SetForegroundWindow(hwnd)
-        user32.SetActiveWindow(hwnd)
-        user32.SetFocus(hwnd)
-    except Exception:  # noqa: BLE001 - 非 Windows 或 API 失敗時忽略
-        pass
+        if time.time() >= deadline:
+            return
+        time.sleep(0.1)
 
 
 def main() -> int:
@@ -48,7 +45,7 @@ def main() -> int:
     screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
     pygame.display.set_caption(S.TITLE)
     pygame.mouse.set_visible(False)
-    focus_window()
+    grab_focus()
 
     game = Game(screen)
     game.run()
