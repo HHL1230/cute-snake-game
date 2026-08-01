@@ -294,7 +294,7 @@ class Game:
         if e.key == pygame.K_m:
             self.audio.toggle_mute()
             return
-        if e.key == pygame.K_F11:
+        if e.key in (pygame.K_F11, pygame.K_f):
             self.toggle_fullscreen()
             return
 
@@ -790,7 +790,7 @@ class Game:
             "C  .......................  BOMB",
             "P / ESC  .................  PAUSE",
             "M  .......................  MUTE",
-            "F11  .....................  FULLSCREEN",
+            "F / F11  .................  FULLSCREEN",
             "Q  .......................  QUIT",
         ]
         y = 462

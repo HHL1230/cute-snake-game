@@ -103,7 +103,7 @@ class Hud:
         y += 10
         for line in ("ARROWS/WASD", "or NUMPAD", " MOVE", "Z / SPACE", " SHOOT",
                      "X  ROLL", "C  BOMB", "P  PAUSE", "M  MUTE",
-                     "F11 FULLSCR", "Q  QUIT"):
+                     "F   FULLSCR", "Q  QUIT"):
             surf.blit(a.font_tiny.render(line, True, S.STEEL), (x, y))
             y += 14
 

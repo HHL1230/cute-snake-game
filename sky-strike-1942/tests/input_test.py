@@ -241,6 +241,15 @@ def main() -> int:
     check("再按 F11 回到視窗模式",
           not game.fullscreen and game.screen.get_size() == (S.SCREEN_W, S.SCREEN_H))
 
+    # 以真實按鍵事件驗證 F / F11 都能切換
+    for key, name in ((pygame.K_F11, "F11"), (pygame.K_f, "F")):
+        game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"按 {name} 進入全螢幕", game.fullscreen)
+        game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
+        check(f"再按 {name} 回到視窗模式",
+              not game.fullscreen and game.screen.get_size() == (S.SCREEN_W, S.SCREEN_H))
+        game.held.clear()
+
     print("8. 離開遊戲按鍵")
     game.confirm_quit = False
     game.running = True
