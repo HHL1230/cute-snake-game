@@ -284,6 +284,195 @@ def _enemy_variant(kind: str, size: int) -> pygame.Surface:
 
 
 # --------------------------------------------------------------------------
+# 敵軍軍艦（海上目標）
+# --------------------------------------------------------------------------
+_WARSHIP_SPEC = {
+    #             寬   高  主砲塔 煙囪 航艦
+    "destroyer":  (52, 150, 2, 2, False),
+    "cruiser":    (64, 192, 3, 2, False),
+    "battleship": (80, 236, 4, 1, False),
+    "carrier":    (88, 252, 0, 1, True),
+}
+
+
+def make_warship(kind: str) -> pygame.Surface:
+    """由上而下俯視的軍艦（艦首朝上，之後翻轉成朝下）。"""
+    w, h, turrets, funnels, carrier = _WARSHIP_SPEC[kind]
+    ss = 3
+    W, H = w * ss, h * ss
+    s = _surf(W, H)
+    cx = W / 2
+
+    hull = (86, 94, 106)
+    hull_hi = _shade(hull, 1.30)
+    hull_lo = _shade(hull, 0.66)
+    deck = (116, 124, 136)
+    deck_dk = _shade(deck, 0.72)
+    steel = (150, 158, 170)
+    dark = (38, 42, 50)
+    foam = (236, 246, 250)
+
+    hull_pts = [
+        (cx, H * 0.004),
+        (cx + W * 0.30, H * 0.075),
+        (cx + W * 0.455, H * 0.235),
+        (cx + W * 0.470, H * 0.760),
+        (cx + W * 0.370, H * 0.960),
+        (cx - W * 0.370, H * 0.960),
+        (cx - W * 0.470, H * 0.760),
+        (cx - W * 0.455, H * 0.235),
+        (cx - W * 0.30, H * 0.075),
+    ]
+
+    # 艦尾尾浪（翻轉後會位於畫面上方，正好在船後方）
+    for i in range(10):
+        t = i / 9
+        yy = H * (0.966 + t * 0.033)
+        pygame.draw.line(s, (*foam, int(52 * (1 - t) ** 1.4)),
+                         (cx - W * (0.26 + t * 0.62), yy),
+                         (cx + W * (0.26 + t * 0.62), yy), ss * 2)
+
+    pygame.draw.polygon(s, hull_lo, hull_pts)
+    pygame.draw.polygon(s, hull, [(cx + (x - cx) * 0.94, y) for x, y in hull_pts])
+    # 左舷受光
+    pygame.draw.polygon(s, hull_hi, [
+        (cx - W * 0.44, H * 0.24), (cx - W * 0.36, H * 0.24),
+        (cx - W * 0.36, H * 0.76), (cx - W * 0.455, H * 0.76)])
+
+    # 甲板
+    deck_pts = [(cx + (x - cx) * 0.84, H * 0.03 + (y - H * 0.03) * 0.94)
+                for x, y in hull_pts]
+    pygame.draw.polygon(s, deck, deck_pts)
+
+    # 迷彩塗裝（以艦體剪影遮罩，避免溢出船身）
+    mask = _surf(W, H)
+    pygame.draw.polygon(mask, (255, 255, 255, 255), hull_pts)
+    camo = _surf(W, H)
+    rnd = random.Random(len(kind) * 97 + w)
+    for k in range(7):
+        y0 = H * (0.06 + k * 0.13)
+        skew = rnd.uniform(-0.16, 0.16) * H
+        col = (44, 52, 66) if k % 2 == 0 else (108, 118, 132)
+        pygame.draw.polygon(camo, (*col, 120), [
+            (cx - W, y0), (cx + W, y0 + skew),
+            (cx + W, y0 + skew + H * 0.055), (cx - W, y0 + H * 0.055)])
+    camo.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    s.blit(camo, (0, 0))
+
+    # 甲板板線
+    for k in range(1, 22):
+        y = H * 0.05 + k * H * 0.042
+        if y > H * 0.94:
+            break
+        pygame.draw.line(s, (*deck_dk, 110), (cx - W * 0.34, y), (cx + W * 0.34, y), 1)
+
+    if carrier:
+        # 飛行甲板
+        fd = pygame.Rect(cx - W * 0.42, H * 0.045, W * 0.84, H * 0.905)
+        pygame.draw.rect(s, (66, 62, 60), fd, border_radius=int(W * 0.08))
+        pygame.draw.rect(s, (86, 82, 78), fd.inflate(-W * 0.05, -H * 0.02),
+                         border_radius=int(W * 0.06))
+        pygame.draw.rect(s, (214, 210, 196), fd, ss, border_radius=int(W * 0.08))
+        for k in range(13):  # 中線
+            pygame.draw.rect(s, (232, 228, 212),
+                             pygame.Rect(cx - 2 * ss, H * (0.10 + k * 0.066),
+                                         4 * ss, H * 0.034))
+        for k in range(4):  # 攔阻索
+            pygame.draw.line(s, (176, 172, 160), (cx - W * 0.36, H * (0.74 + k * 0.045)),
+                             (cx + W * 0.36, H * (0.74 + k * 0.045)), ss)
+        # 日之丸識別
+        pygame.draw.circle(s, (232, 240, 240), (cx, H * 0.42), W * 0.13)
+        pygame.draw.circle(s, (198, 40, 40), (cx, H * 0.42), W * 0.105)
+        # 艦島
+        isl = pygame.Rect(cx + W * 0.28, H * 0.38, W * 0.17, H * 0.17)
+        pygame.draw.rect(s, dark, isl.move(ss, ss * 2))
+        pygame.draw.rect(s, steel, isl)
+        pygame.draw.rect(s, _shade(steel, 1.2),
+                         pygame.Rect(isl.x, isl.y, isl.w, isl.h * 0.35))
+        pygame.draw.rect(s, dark, pygame.Rect(cx + W * 0.31, H * 0.56,
+                                              W * 0.10, H * 0.075),
+                         border_radius=ss * 2)
+        pygame.draw.line(s, (206, 210, 220), (cx + W * 0.365, H * 0.30),
+                         (cx + W * 0.365, H * 0.40), ss)
+        # 甲板上停放的艦載機
+        for k in range(4):
+            px = cx - W * 0.24 + (k % 2) * W * 0.30
+            py = H * (0.80 + (k // 2) * 0.075)
+            pygame.draw.polygon(s, (74, 96, 78),
+                                [(px, py - H * 0.022), (px + W * 0.075, py + H * 0.012),
+                                 (px - W * 0.075, py + H * 0.012)])
+            pygame.draw.rect(s, (58, 78, 62),
+                             pygame.Rect(px - W * 0.012, py - H * 0.026,
+                                         W * 0.024, H * 0.05))
+    else:
+        # 主砲塔（前後配置）
+        rows = [0.135, 0.265, 0.735, 0.865][:turrets]
+        for ty in rows:
+            r = W * 0.155
+            pygame.draw.circle(s, dark, (cx + ss, H * ty + ss * 2), r)
+            pygame.draw.circle(s, _shade(steel, 0.80), (cx, H * ty), r)
+            pygame.draw.circle(s, steel, (cx - r * 0.18, H * ty - r * 0.20), r * 0.66)
+            barrel_dir = -1 if ty < 0.5 else 1
+            for bx in (-0.32, 0.0, 0.32):
+                pygame.draw.rect(s, dark, pygame.Rect(
+                    cx + r * bx - ss, H * ty + barrel_dir * r * 0.6 -
+                    (r * 1.25 if barrel_dir < 0 else 0), ss * 2, r * 1.25))
+            pygame.draw.circle(s, (198, 40, 40), (cx, H * ty), r * 0.22)
+
+        # 艦橋 / 上層建築
+        br = pygame.Rect(cx - W * 0.17, H * 0.355, W * 0.34, H * 0.135)
+        pygame.draw.rect(s, dark, br.move(ss, ss * 2), border_radius=ss)
+        pygame.draw.rect(s, steel, br, border_radius=ss)
+        pygame.draw.rect(s, _shade(steel, 1.22),
+                         pygame.Rect(br.x, br.y, br.w, br.h * 0.34), border_radius=ss)
+        pygame.draw.rect(s, _shade(steel, 0.55), br, ss, border_radius=ss)
+        # 主桅
+        pygame.draw.line(s, (206, 210, 220), (cx, H * 0.315), (cx, H * 0.375), ss)
+        pygame.draw.line(s, (206, 210, 220), (cx - W * 0.10, H * 0.335),
+                         (cx + W * 0.10, H * 0.335), ss)
+
+        # 煙囪
+        for k in range(funnels):
+            fy = H * (0.505 + k * 0.085)
+            fr = pygame.Rect(cx - W * 0.105, fy, W * 0.21, H * 0.055)
+            pygame.draw.rect(s, dark, fr.move(ss, ss * 2), border_radius=ss * 2)
+            pygame.draw.rect(s, _shade(steel, 0.86), fr, border_radius=ss * 2)
+            pygame.draw.ellipse(s, (26, 24, 26),
+                                pygame.Rect(fr.x + W * 0.035, fr.y + H * 0.010,
+                                            W * 0.14, H * 0.032))
+
+        # 舷側高射砲
+        for side in (-1, 1):
+            for k in range(4):
+                gx = cx + side * W * 0.335
+                gy = H * (0.42 + k * 0.095)
+                pygame.draw.circle(s, dark, (gx, gy), W * 0.045)
+                pygame.draw.circle(s, _shade(steel, 0.95), (gx, gy), W * 0.032)
+                pygame.draw.line(s, dark, (gx, gy),
+                                 (gx + side * W * 0.075, gy - H * 0.018), ss)
+        # 救生艇
+        for side in (-1, 1):
+            pygame.draw.ellipse(s, (128, 116, 96),
+                                pygame.Rect(cx + side * W * 0.30 - W * 0.035,
+                                            H * 0.60, W * 0.07, H * 0.045))
+
+    # 艦首破浪白沫
+    for i in range(7):
+        t = i / 6
+        yy = H * (0.004 - t * 0.004)
+        pygame.draw.line(s, (*foam, int(120 * (1 - t))),
+                         (cx - W * (0.10 + t * 0.34), yy + H * 0.02 * t),
+                         (cx + W * (0.10 + t * 0.34), yy + H * 0.02 * t), ss)
+
+    return _down(s, w, h)
+
+
+def _warship_variant(kind: str) -> pygame.Surface:
+    s = pygame.transform.flip(make_warship(kind), False, True)
+    return _with_shadow(s, 3.0, 4.0, 120)
+
+
+# --------------------------------------------------------------------------
 # 頭目
 # --------------------------------------------------------------------------
 _BOSS_PALETTE = [
@@ -596,6 +785,8 @@ class Assets:
             "heavy": _enemy_variant("heavy", 72),
             "jet": _enemy_variant("jet", 32),
         }
+        for k in _WARSHIP_SPEC:
+            self.enemies[k] = _warship_variant(k)
         self.bosses: dict[int, pygame.Surface] = {i: make_boss(i) for i in range(1, 8)}
         # 受擊閃白版本（預先產生，避免遊戲中重複配置 Surface）
         self.enemies_hit = {k: _flashed(v, (90, 90, 90)) for k, v in self.enemies.items()}

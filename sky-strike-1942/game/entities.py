@@ -319,7 +319,15 @@ ENEMY_STATS = {
     "bomber": (6, 600, 100.0, "spread", 2.2),
     "heavy":  (14, 1500, 78.0, "stream", 1.3),
     "jet":    (2, 250, 300.0, "aimed", 1.8),
+    # 海上目標：血厚、分數高、隨海面緩慢移動，且不會撞毀玩家
+    "destroyer":  (30, 3000, 52.0, "flak", 1.60),
+    "cruiser":    (52, 5000, 46.0, "salvo", 1.45),
+    "battleship": (92, 12000, 38.0, "salvo", 1.15),
+    "carrier":    (74, 8000, 42.0, "flak", 1.30),
 }
+
+# 水面艦艇：玩家從上空飛越不會相撞
+SURFACE_KINDS = ("destroyer", "cruiser", "battleship", "carrier")
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -350,6 +358,7 @@ class Enemy(pygame.sprite.Sprite):
         self.state = 0
         self.vel = pygame.Vector2(0, self.speed)
         self.counted = False
+        self.surface_ship = kind in SURFACE_KINDS
 
         if pattern == "arc":
             r = self.p.get("radius", 120.0)
@@ -449,6 +458,8 @@ class Enemy(pygame.sprite.Sprite):
             return
         speed = S.ENEMY_BULLET_SPEED * game.stage_data.get("bullet_speed", 1.0)
         origin = (self.rect.centerx, self.rect.bottom - 4)
+        if self.surface_ship:
+            origin = (self.rect.centerx, self.rect.centery)
         if self.fire_pattern == "aimed":
             d = vector_to(origin, game.player.rect.center)
             game.spawn_enemy_bullet(origin, (d[0] * speed, d[1] * speed))
@@ -462,6 +473,22 @@ class Enemy(pygame.sprite.Sprite):
             d = vector_to(origin, game.player.rect.center)
             for k in (0.85, 1.0, 1.15):
                 game.spawn_enemy_bullet(origin, (d[0] * speed * k, d[1] * speed * k))
+        elif self.fire_pattern == "flak":
+            # 對空機槍：以玩家方向為中心的寬扇形彈幕
+            d = vector_to(origin, game.player.rect.center)
+            base = math.atan2(d[1], d[0])
+            for off in (-0.46, -0.23, 0.0, 0.23, 0.46):
+                a = base + off
+                game.spawn_enemy_bullet(
+                    origin, (math.cos(a) * speed * 0.92, math.sin(a) * speed * 0.92))
+        elif self.fire_pattern == "salvo":
+            # 主砲齊射：艦體左右砲塔各射一發，中央追加一發較快的
+            for ox in (-self.rect.width * 0.28, 0.0, self.rect.width * 0.28):
+                src = (origin[0] + ox, origin[1])
+                d = vector_to(src, game.player.rect.center)
+                k = 1.18 if ox == 0 else 1.0
+                game.spawn_enemy_bullet(src, (d[0] * speed * k, d[1] * speed * k),
+                                        boss=(ox == 0))
         game.audio.play("enemy_shoot")
 
     def damage(self, amount: int, game) -> bool:  # noqa: ANN001
@@ -475,9 +502,19 @@ class Enemy(pygame.sprite.Sprite):
         return False
 
     def destroy(self, game) -> None:  # noqa: ANN001
-        size = "big" if self.kind in ("bomber", "heavy") else "small"
-        game.spawn_explosion(self.rect.center, size)
-        game.audio.play("explode" if size == "small" else "big_explode")
+        if self.surface_ship:
+            # 大型艦艇：連鎖爆炸 + 誘爆火光
+            game.spawn_explosion(self.rect.center, "huge")
+            for _ in range(5):
+                off = (random.uniform(-self.rect.width * 0.36, self.rect.width * 0.36),
+                       random.uniform(-self.rect.height * 0.40, self.rect.height * 0.40))
+                game.spawn_explosion((self.rect.centerx + off[0],
+                                      self.rect.centery + off[1]), "big")
+            game.audio.play("big_explode")
+        else:
+            size = "big" if self.kind in ("bomber", "heavy") else "small"
+            game.spawn_explosion(self.rect.center, size)
+            game.audio.play("explode" if size == "small" else "big_explode")
         game.add_score(self.score, self.rect.center)
         if self.formation is not None and not self.counted:
             self.counted = True

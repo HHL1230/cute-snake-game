@@ -600,6 +600,8 @@ class Game:
                 return
 
         for en in list(self.enemies):
+            if getattr(en, "surface_ship", False):
+                continue          # 水面艦艇位於海面，飛越時不會相撞
             if box.colliderect(en.rect.inflate(-6, -6)):
                 en.damage(3, self)
                 self._player_hit()
@@ -658,9 +660,15 @@ class Game:
             self._draw_title(surf)
         else:
             self.background.draw(surf)
+            # 水面艦艇先畫，讓機群飛越其上方
+            for sp in self.enemies:
+                if getattr(sp, "surface_ship", False):
+                    surf.blit(sp.image, sp.rect)
             for group in (self.powerups, self.enemies, self.wingmen,
                           self.enemy_bullets, self.player_bullets):
                 for sp in group:
+                    if group is self.enemies and getattr(sp, "surface_ship", False):
+                        continue
                     surf.blit(sp.image, sp.rect)
             if self.boss:
                 surf.blit(self.boss.image, self.boss.rect)

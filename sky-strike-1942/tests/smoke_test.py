@@ -190,6 +190,47 @@ def main() -> int:
     assert S.EXTEND_SCORE >= 60000, S.EXTEND_SCORE
     print(f"  OK  道具掉落配置 {dict(rewards)}")
 
+    # 敵軍軍艦（水面目標）
+    from game.entities import SURFACE_KINDS  # noqa: PLC0415
+    ship_waves = Counter(w["kind"] for st in STAGES for w in st["waves"]
+                         if w["kind"] in SURFACE_KINDS)
+    assert set(ship_waves) == set(SURFACE_KINDS), ship_waves
+    for kind in SURFACE_KINDS:
+        for e in list(game.enemies):
+            e.kill()
+        game.powerups.empty()
+        game.enemy_bullets.empty()
+        ship = Enemy(game.assets, kind, (S.PLAY_W / 2, 240), "down")
+        game.enemies.add(ship)
+        game.all_sprites.add(ship)
+        assert ship.surface_ship, kind
+        assert ship.max_hp >= 30, (kind, ship.max_hp)
+        assert ship.score >= 3000, (kind, ship.score)
+        # 直接飛到艦體正上方也不應相撞
+        game.player.pos.update(*ship.rect.center)
+        game.player.rect.center = ship.rect.center
+        game.player.invuln = 0
+        before = game.lives
+        game._collisions()
+        assert game.lives == before and game.player is not None, f"{kind} 不應撞毀玩家"
+        assert ship.alive(), kind
+        game.player.pos.update(S.PLAY_W / 2, S.SCREEN_H - 110)
+        game.player.rect.center = (S.PLAY_W // 2, S.SCREEN_H - 110)
+        # 開砲：應能產生彈幕
+        game.enemy_bullets.empty()
+        ship.shoot(game)
+        assert len(game.enemy_bullets) >= 3, (kind, len(game.enemy_bullets))
+        # 擊沉：大型爆炸 + 高分
+        score_before = game.score
+        game.effects.empty()
+        ship.damage(10 ** 6, game)
+        assert not ship.alive(), kind
+        assert game.score - score_before >= 3000, (kind, game.score - score_before)
+        assert len(game.effects) >= 4, (kind, len(game.effects))
+    game.enemy_bullets.empty()
+    game.effects.empty()
+    print(f"  OK  敵軍軍艦 {dict(ship_waves)}")
+
     game.player.invuln = 0
     assert game.player.start_roll(game)
     step(game, 1.5, god=False)
