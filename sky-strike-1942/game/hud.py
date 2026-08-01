@@ -63,6 +63,19 @@ class Hud:
             pygame.draw.rect(surf, col, pygame.Rect(x + i * 22, y, 18, 10), border_radius=2)
         y += 22
 
+        # 武器
+        label("WEAPON")
+        weapon = game.player.weapon if game.player else S.WEAPON_VULCAN
+        if weapon == S.WEAPON_LASER:
+            wname, wcol = "LASER", S.CYAN
+        else:
+            wname, wcol = "VULCAN", S.YELLOW
+        pygame.draw.rect(surf, (52, 56, 68), pygame.Rect(x, y, 96, 16), border_radius=3)
+        pygame.draw.rect(surf, wcol, pygame.Rect(x, y, 96, 16), 1, border_radius=3)
+        wimg = a.font_tiny.render(wname, True, wcol)
+        surf.blit(wimg, wimg.get_rect(center=(x + 48, y + 8)))
+        y += 24
+
         # 僚機
         label("WINGMEN")
         wm = len(game.player.wingmen) if game.player else 0

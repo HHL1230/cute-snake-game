@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -18,6 +19,7 @@ import pygame  # noqa: E402
 
 from game import settings as S  # noqa: E402
 from game.app import Game  # noqa: E402
+from game.entities import Enemy  # noqa: E402
 from game.stages import STAGES  # noqa: E402
 
 DT = 1 / 60
@@ -88,15 +90,32 @@ def main() -> int:
         game.boss.damage(10 ** 6, game)           # 直接擊破
         wait_for(game, ("clear",), 8.0, autofire=False)
 
+        if stage_i == len(STAGES) - 1:
+            # 最終關破關後應進入 ALL CLEAR 結局，而不是回到第 1 關
+            wait_for(game, ("allclear",), 8.0, autofire=False)
+            assert game.stage_index == stage_i, game.stage_index
+            assert game.loop_count == 0, "全破後不應再從頭循環"
+            assert game.allclear_bonus > 0, game.allclear_bonus
+            print(f"  OK  STAGE {stage_i + 1}  {name:<14} score={game.score:>8}")
+            break
+
         wait_for(game, ("intro", "play"), 8.0, autofire=False)  # 進入下一關
-        expected = (stage_i + 1) % len(STAGES)
+        expected = stage_i + 1
         assert game.stage_index == expected, (game.stage_index, expected)
         print(f"  OK  STAGE {stage_i + 1}  {name:<14} score={game.score:>8}")
 
-    assert game.loop_count == 1, "全破後應進入二週目"
+    assert game.state == "allclear", game.state
+    print(f"  OK  ALL CLEAR 結局   bonus={game.allclear_bonus}")
 
-    # 測試道具、炸彈、翻滾、死亡與 Game Over 流程
+    # ALL CLEAR 畫面按 ENTER 回標題（需先過 2 秒鎖定時間）
+    step(game, 2.5, autofire=False)
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+    assert game.state == "title", game.state
+
+    # 重新開一局，接著測試道具、炸彈、翻滾、死亡與 Game Over 流程
+    game.start_new_game()
     step(game, 3.0, autofire=False)
+    game.lives = 5
     assert game.player is not None
     game.player.clear_wingmen(game)
     game.player.power = 0
@@ -106,6 +125,69 @@ def main() -> int:
     assert len(game.player.wingmen) == 1
     game._apply_powerup("wing")
     assert len(game.player.wingmen) == 2
+
+    # 武器切換：雷射 / 機砲
+    assert game.player.weapon == S.WEAPON_VULCAN, game.player.weapon
+    game._apply_powerup("laser")
+    assert game.player.weapon == S.WEAPON_LASER, game.player.weapon
+    game.player.fire_timer = 0.0
+    game.player_bullets.empty()
+    game.player.fire(game)
+    assert len(game.player_bullets) > 0
+    assert all(b.pierce for b in game.player_bullets), "雷射彈應可穿透"
+
+    # 雷射應能貫穿縱列上的多架敵機
+    def _line_of_targets() -> list:
+        for e in list(game.enemies):
+            e.kill()
+        game.player_bullets.empty()
+        out = []
+        for i in range(3):
+            en = Enemy(game.assets, "scout", (S.PLAY_W / 2, 150 + i * 60), "none", {})
+            en.hp = 99
+            game.enemies.add(en)
+            game.all_sprites.add(en)
+            out.append(en)
+        return out
+
+    game.player.pos.update(S.PLAY_W / 2, S.SCREEN_H - 110)
+    game.player.power = 0
+    targets = _line_of_targets()
+    game.player.fire_timer = 0.0
+    game.player.fire(game)
+    for _ in range(int(1.2 / DT)):
+        for b in list(game.player_bullets):
+            b.update(DT, game)
+        game._collisions()
+    hurt = sum(1 for t in targets if t.hp < 99)
+    assert hurt == 3, f"雷射應貫穿 3 架，實際 {hurt}"
+
+    game._apply_powerup("vulcan")
+    assert game.player.weapon == S.WEAPON_VULCAN, game.player.weapon
+    targets = _line_of_targets()
+    game.player.fire_timer = 0.0
+    game.player.fire(game)
+    assert not any(b.pierce for b in game.player_bullets), "機砲彈不應穿透"
+    for _ in range(int(1.2 / DT)):
+        for b in list(game.player_bullets):
+            b.update(DT, game)
+        game._collisions()
+    hurt = sum(1 for t in targets if t.hp < 99)
+    assert hurt == 1, f"機砲只應打中 1 架，實際 {hurt}"
+    for e in list(game.enemies):
+        e.kill()
+    game.player_bullets.empty()
+    print("  OK  雷射 / 機砲 武器切換與穿透判定")
+
+    # 掉落配置：僚機最多、不再掉落 1UP
+    rewards = Counter(w["reward"] for st in STAGES for w in st["waves"] if w["reward"])
+    assert rewards["wing"] >= 12, rewards
+    assert rewards["wing"] == max(rewards.values()), rewards
+    assert rewards["life"] == 0, rewards
+    assert rewards["laser"] >= 1 and rewards["vulcan"] >= 1, rewards
+    assert S.EXTEND_SCORE >= 60000, S.EXTEND_SCORE
+    print(f"  OK  道具掉落配置 {dict(rewards)}")
+
     game.player.invuln = 0
     assert game.player.start_roll(game)
     step(game, 1.5, god=False)

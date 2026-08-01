@@ -29,8 +29,15 @@ ENEMY_BULLET_SPEED = 210.0
 # --- 火力等級 ---
 MAX_POWER = 4
 
+# --- 武器 ---
+WEAPON_VULCAN = "vulcan"      # 預設散射機砲
+WEAPON_LASER = "laser"        # 穿透雷射
+LASER_FIRE_COOLDOWN = 0.20    # 射速較慢
+LASER_BULLET_SPEED = 900.0
+LASER_PIERCE_INTERVAL = 0.12  # 同一目標的重複命中間隔（秒）
+
 # --- 分數 ---
-EXTEND_SCORE = 30000          # 每達此分數加一命
+EXTEND_SCORE = 80000          # 每達此分數加一命（刻意調高，加命更稀有）
 
 # --- 顏色 ---
 WHITE = (245, 245, 245)

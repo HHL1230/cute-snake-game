@@ -224,6 +224,22 @@ def make_player_bullet() -> pygame.Surface:
     return s
 
 
+def make_laser_bullet(width: int = 10, height: int = 40) -> pygame.Surface:
+    """穿透雷射光束：中央亮白、外圍青色輝光。"""
+    s = _surf(width, height)
+    pygame.draw.rect(s, (90, 220, 255, 110), pygame.Rect(0, 0, width, height),
+                     border_radius=width // 2)
+    inner = max(2, width - 4)
+    pygame.draw.rect(s, (150, 240, 255, 220),
+                     pygame.Rect((width - inner) // 2, 1, inner, height - 2),
+                     border_radius=inner // 2)
+    core = max(1, width - 7)
+    pygame.draw.rect(s, (255, 255, 255, 255),
+                     pygame.Rect((width - core) // 2, 2, core, height - 4),
+                     border_radius=max(1, core // 2))
+    return s
+
+
 def make_enemy_bullet() -> pygame.Surface:
     s = _surf(12, 12)
     pygame.draw.circle(s, (255, 236, 160), (6, 6), 6)
@@ -246,6 +262,8 @@ _POWERUP_STYLE = {
     "bomb": ("B", (60, 62, 74), YELLOW),
     "loop": ("L", GREEN, WHITE),
     "life": ("1UP", PURPLE, WHITE),
+    "laser": ("Z", (18, 122, 158), CYAN),
+    "vulcan": ("V", (168, 96, 16), YELLOW),
 }
 
 
@@ -346,6 +364,8 @@ class Assets:
         self.bosses_hit = {k: _flashed(v, (55, 22, 22)) for k, v in self.bosses.items()}
 
         self.player_bullet = make_player_bullet()
+        self.laser_bullet = make_laser_bullet(10, 40)
+        self.laser_bullet_small = make_laser_bullet(6, 30)
         self.enemy_bullet = make_enemy_bullet()
         self.boss_bullet = make_boss_bullet()
         self.powerups = {k: make_powerup(k, self.font_tiny) for k in _POWERUP_STYLE}

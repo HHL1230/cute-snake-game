@@ -65,6 +65,8 @@ class Game:
         self.paused = False
         self.stage_kills = 0
         self.stage_shots_hit = 0
+        self.clear_bonus = 0
+        self.allclear_bonus = 0
 
         # 輸入狀態：事件驅動的按鍵集合，與 key.get_pressed() 互為備援
         self.held: set[int] = set()
@@ -85,6 +87,7 @@ class Game:
         self.next_extend = S.EXTEND_SCORE
         self.stage_index = 0
         self.loop_count = 0
+        self.allclear_bonus = 0
         self.player = None
         self._clear_groups()
         self.start_stage(0)
@@ -173,8 +176,15 @@ class Game:
         self.player = Player(self.assets, (S.PLAY_W / 2, S.SCREEN_H - 110))
         self.all_sprites.add(self.player)
 
-    def spawn_player_bullet(self, pos, vel, damage: int = 1) -> None:
-        b = Bullet(self.assets.player_bullet, pos, vel, damage)
+    def spawn_player_bullet(self, pos, vel, damage: int = 1, kind: str = "vulcan") -> None:
+        if kind == "laser":
+            b = Bullet(self.assets.laser_bullet, pos, vel, damage,
+                       radius=5.0, pierce=True)
+        elif kind == "laser_small":
+            b = Bullet(self.assets.laser_bullet_small, pos, vel, damage,
+                       radius=3.5, pierce=True)
+        else:
+            b = Bullet(self.assets.player_bullet, pos, vel, damage)
         self.player_bullets.add(b)
         self.all_sprites.add(b)
 
@@ -297,6 +307,15 @@ class Game:
                 self._clear_groups()
                 self.player = None
                 self.audio.play_music("title")
+        elif self.state == "allclear":
+            if self.state_t > 2.0 and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER,
+                                                pygame.K_z, pygame.K_SPACE):
+                save_highscore(self.highscore)
+                self.state = "title"
+                self.state_t = 0.0
+                self._clear_groups()
+                self.player = None
+                self.audio.play_music("title")
         elif self.state in ("play", "boss"):
             if e.key == pygame.K_p:
                 self.paused = not self.paused
@@ -390,6 +409,16 @@ class Game:
             self.effects.update(dt, self)
             return
 
+        if self.state == "allclear":
+            self.background.update(dt, 1.1)
+            self.effects.update(dt, self)
+            if self.player:
+                self.player.pos.y -= 34 * dt
+                if self.player.pos.y < -80:
+                    self.player.pos.y = S.SCREEN_H + 60
+                self.player.update(dt, self)
+            return
+
         # --- play / boss_alarm / boss ---
         speed_scale = 1.0 if self.state != "boss" else 0.45
         self.background.update(dt, speed_scale)
@@ -476,9 +505,23 @@ class Game:
     def _advance_stage(self) -> None:
         nxt = self.stage_index + 1
         if nxt >= len(STAGES):
-            self.loop_count += 1
-            nxt = 0
+            self._all_clear()
+            return
         self.start_stage(nxt)
+
+    def _all_clear(self) -> None:
+        """全關卡通關：進入結局畫面，不再從第 1 關重跑。"""
+        self.allclear_bonus = 50000 + self.lives * 10000
+        self.add_score(self.allclear_bonus)
+        self.state = "allclear"
+        self.state_t = 0.0
+        self.audio.stop_music()
+        self.audio.play("extend")
+        save_highscore(self.highscore)
+        for group in (self.enemies, self.enemy_bullets, self.player_bullets,
+                      self.powerups):
+            for sp in list(group):
+                sp.kill()
 
     def _game_over(self) -> None:
         self.state = "gameover"
@@ -490,18 +533,28 @@ class Game:
     # 碰撞
     # ==================================================================
     def _collisions(self) -> None:
-        # 玩家子彈 → 敵機
-        hits = pygame.sprite.groupcollide(self.enemies, self.player_bullets, False, True)
+        # 玩家子彈 → 敵機（穿透彈不消失，並對每個目標套用命中冷卻）
+        hits = pygame.sprite.groupcollide(self.enemies, self.player_bullets, False, False)
         for enemy, bullets in hits.items():
-            dmg = sum(b.damage for b in bullets)
-            enemy.damage(dmg, self)
+            dmg = 0
+            for b in bullets:
+                if not b.can_hit(enemy):
+                    continue
+                dmg += b.damage
+                if not b.pierce:
+                    b.kill()
+            if dmg:
+                enemy.damage(dmg, self)
 
         # 玩家子彈 → 頭目
         if self.boss and self.boss.state == "fight":
             box = self.boss.hitbox
             for b in list(self.player_bullets):
                 if box.colliderect(b.rect):
-                    b.kill()
+                    if not b.can_hit(self.boss):
+                        continue
+                    if not b.pierce:
+                        b.kill()
                     self.boss.damage(b.damage, self)
 
         p = self.player
@@ -547,6 +600,12 @@ class Game:
             self.add_score(500)
         elif kind == "loop":
             p.loops = min(9, p.loops + 2)
+            self.add_score(500)
+        elif kind == "laser":
+            p.set_weapon(self, S.WEAPON_LASER)
+            self.add_score(500)
+        elif kind == "vulcan":
+            p.set_weapon(self, S.WEAPON_VULCAN)
             self.add_score(500)
         elif kind == "life":
             self.lives += 1
@@ -779,6 +838,21 @@ class Game:
                 (f"REACHED STAGE {self.stage_index + 1}", a.font_small, S.SILVER),
             ]
             if self.state_t > 1.2 and self.hud.blink(self.state_t):
+                lines.append(("PRESS ENTER", a.font_small, S.YELLOW))
+            self.hud.draw_center_text(surf, lines)
+        elif self.state == "allclear":
+            self.hud.draw_banner(surf, 210)
+            lines = [
+                ("ALL STAGES", a.font_big, S.YELLOW),
+                ("CLEAR!", a.font_huge, S.ORANGE),
+                ("全 關 卡 通 關", a.font_cjk_small, S.WHITE),
+                ("", a.font_tiny, S.WHITE),
+                (f"ALL CLEAR BONUS  {getattr(self, 'allclear_bonus', 0):,}",
+                 a.font_small, S.GREEN),
+                (f"FINAL SCORE  {self.score:07d}", a.font, S.WHITE),
+                (f"HI-SCORE  {self.highscore:07d}", a.font_small, S.CYAN),
+            ]
+            if self.state_t > 2.0 and self.hud.blink(self.state_t):
                 lines.append(("PRESS ENTER", a.font_small, S.YELLOW))
             self.hud.draw_center_text(surf, lines)
 

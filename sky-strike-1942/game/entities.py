@@ -58,7 +58,7 @@ class FloatingText(pygame.sprite.Sprite):
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, image: pygame.Surface, pos: tuple[float, float],
                  velocity: tuple[float, float], damage: int = 1,
-                 radius: float = 4.0) -> None:
+                 radius: float = 4.0, pierce: bool = False) -> None:
         super().__init__()
         self.image = image
         self.rect = image.get_rect(center=pos)
@@ -66,10 +66,28 @@ class Bullet(pygame.sprite.Sprite):
         self.vel = pygame.Vector2(velocity)
         self.damage = damage
         self.radius = radius
+        self.pierce = pierce
+        # 穿透彈記錄「目標 id → 冷卻」，避免同一目標每幀被重複扣血
+        self.hit_cd: dict[int, float] = {}
+
+    def can_hit(self, target) -> bool:  # noqa: ANN001
+        """穿透彈是否可對此目標造成傷害（並登記冷卻）。"""
+        if not self.pierce:
+            return True
+        key = id(target)
+        if self.hit_cd.get(key, 0.0) > 0.0:
+            return False
+        self.hit_cd[key] = S.LASER_PIERCE_INTERVAL
+        return True
 
     def update(self, dt: float, game) -> None:  # noqa: ANN001
         self.pos += self.vel * dt
         self.rect.center = (round(self.pos.x), round(self.pos.y))
+        if self.hit_cd:
+            for key in list(self.hit_cd):
+                self.hit_cd[key] -= dt
+                if self.hit_cd[key] <= 0.0:
+                    del self.hit_cd[key]
         if (self.rect.bottom < -30 or self.rect.top > S.SCREEN_H + 30
                 or self.rect.right < -40 or self.rect.left > S.PLAY_W + 40):
             self.kill()
@@ -116,9 +134,15 @@ class Wingman(pygame.sprite.Sprite):
         self.rect.center = (round(cur.x), round(cur.y))
         self.cooldown -= dt
         if self.player.firing and self.cooldown <= 0:
-            self.cooldown = 0.22
-            game.spawn_player_bullet((self.rect.centerx, self.rect.top),
-                                     (0, -S.PLAYER_BULLET_SPEED), damage=1)
+            if self.player.weapon == S.WEAPON_LASER:
+                self.cooldown = 0.30
+                game.spawn_player_bullet((self.rect.centerx, self.rect.top),
+                                         (0, -S.LASER_BULLET_SPEED), damage=2,
+                                         kind="laser_small")
+            else:
+                self.cooldown = 0.22
+                game.spawn_player_bullet((self.rect.centerx, self.rect.top),
+                                         (0, -S.PLAYER_BULLET_SPEED), damage=1)
 
 
 class Player(pygame.sprite.Sprite):
@@ -134,6 +158,7 @@ class Player(pygame.sprite.Sprite):
         self.bombs = 2
         self.loops = S.PLAYER_START_LOOPS
         self.wingmen: list[Wingman] = []
+        self.weapon = S.WEAPON_VULCAN
 
         self.fire_timer = 0.0
         self.firing = False
@@ -180,6 +205,14 @@ class Player(pygame.sprite.Sprite):
         self.wingmen.append(w)
         game.wingmen.add(w)
         game.all_sprites.add(w)
+
+    def set_weapon(self, game, weapon: str) -> None:  # noqa: ANN001
+        """切換武器；撿到相同武器道具時改為加分。"""
+        if self.weapon == weapon:
+            game.add_score(1000)
+            return
+        self.weapon = weapon
+        self.fire_timer = 0.0
 
     def clear_wingmen(self, game) -> None:  # noqa: ANN001
         for w in self.wingmen:
@@ -238,6 +271,9 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(round(self.pos.x), round(self.pos.y)))
 
     def fire(self, game) -> None:  # noqa: ANN001
+        if self.weapon == S.WEAPON_LASER:
+            self._fire_laser(game)
+            return
         self.fire_timer = S.PLAYER_FIRE_COOLDOWN
         x, y = self.pos.x, self.rect.top + 6
         v = S.PLAYER_BULLET_SPEED
@@ -259,6 +295,28 @@ class Player(pygame.sprite.Sprite):
         for pos, vel, dmg in shots:
             game.spawn_player_bullet(pos, vel, dmg)
         game.audio.play("shoot")
+
+    def _fire_laser(self, game) -> None:  # noqa: ANN001
+        """穿透雷射：彈數少、射速慢，但可貫穿整條編隊。"""
+        self.fire_timer = S.LASER_FIRE_COOLDOWN
+        x, y = self.pos.x, self.rect.top - 10
+        v = S.LASER_BULLET_SPEED
+        p = self.power
+        shots: list[tuple[tuple[float, float], tuple[float, float], int, str]] = [
+            ((x, y), (0, -v), 3 + p // 2, "laser"),
+        ]
+        if p >= 1:
+            shots.append(((x - 13, y + 10), (0, -v), 2, "laser_small"))
+            shots.append(((x + 13, y + 10), (0, -v), 2, "laser_small"))
+        if p >= 2:
+            shots.append(((x - 22, y + 16), (-v * 0.16, -v * 0.98), 2, "laser_small"))
+            shots.append(((x + 22, y + 16), (v * 0.16, -v * 0.98), 2, "laser_small"))
+        if p >= 4:
+            shots.append(((x - 30, y + 20), (-v * 0.34, -v * 0.94), 2, "laser_small"))
+            shots.append(((x + 30, y + 20), (v * 0.34, -v * 0.94), 2, "laser_small"))
+        for pos, vel, dmg, kind in shots:
+            game.spawn_player_bullet(pos, vel, dmg, kind=kind)
+        game.audio.play("laser")
 
 
 # --------------------------------------------------------------------------

@@ -135,6 +135,9 @@ class Audio:
     def _build_sounds(self) -> None:
         self.sounds["shoot"] = self._snd(
             _tone(1050, 640, 0.07, 0.30, "pulse", 0.01, 0.6), 0.28)
+        self.sounds["laser"] = self._snd(
+            _mix(_tone(1750, 900, 0.12, 0.26, "sine", 0.005, 0.55),
+                 _tone(880, 440, 0.12, 0.16, "saw", 0.005, 0.55)), 0.26)
         self.sounds["enemy_shoot"] = self._snd(
             _tone(420, 250, 0.09, 0.25, "square", 0.01, 0.6), 0.22)
         self.sounds["hit"] = self._snd(
