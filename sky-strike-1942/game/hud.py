@@ -88,8 +88,9 @@ class Hud:
 
         pygame.draw.line(surf, (52, 58, 74), (x - 2, y), (self.panel_x + S.HUD_W - 8, y))
         y += 10
-        for line in ("ARROWS/WASD", " MOVE", "Z / SPACE", " SHOOT", "X  ROLL", "C  BOMB",
-                     "P  PAUSE", "M  MUTE"):
+        for line in ("ARROWS/WASD", "or NUMPAD", " MOVE", "Z / SPACE", " SHOOT",
+                     "X  ROLL", "C  BOMB", "P  PAUSE", "M  MUTE",
+                     "F11 FULLSCR", "Q  QUIT"):
             surf.blit(a.font_tiny.render(line, True, S.STEEL), (x, y))
             y += 14
 

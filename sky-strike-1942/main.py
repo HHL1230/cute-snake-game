@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 import pygame
@@ -36,6 +37,7 @@ def focus_window() -> None:
 
 
 def main() -> int:
+    os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
     pygame.mixer.pre_init(22050, -16, 1, 512)
     pygame.init()
     try:

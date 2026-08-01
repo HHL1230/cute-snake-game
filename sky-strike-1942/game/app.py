@@ -23,6 +23,9 @@ class Game:
     def __init__(self, screen: pygame.Surface) -> None:
         self.screen = screen
         self.play_surf = pygame.Surface((S.PLAY_W, S.SCREEN_H))
+        # 固定尺寸的完整畫格（遊戲區 + HUD），最後再等比縮放置中貼到實際視窗
+        self.frame = pygame.Surface((S.SCREEN_W, S.SCREEN_H))
+        self.fullscreen = False
         self.assets = Assets()
         self.audio = Audio()
         self.hud = Hud(self.assets)
@@ -66,6 +69,7 @@ class Game:
         # 輸入狀態：事件驅動的按鍵集合，與 key.get_pressed() 互為備援
         self.held: set[int] = set()
         self.has_focus = True
+        self.confirm_quit = False
 
         self.background = Background(STAGES[0]["theme"], STAGES[0]["scroll"], seed=1)
         self.title_bg = Background("ocean", 60.0, seed=7)
@@ -226,7 +230,7 @@ class Game:
     # ==================================================================
     def handle_event(self, e: pygame.event.Event) -> None:
         if e.type == pygame.QUIT:
-            self.running = False
+            self.quit_game()
             return
 
         # --- 視窗焦點：失焦時清空按鍵並顯示提示，避免「按鍵無反應」 ---
@@ -251,19 +255,34 @@ class Game:
         self.has_focus = True
         self.held.add(e.key)
 
+        # --- 離開遊戲確認（Q 開啟，避免遊戲中誤按直接結束）---
+        if self.confirm_quit:
+            if e.key in (pygame.K_y, pygame.K_q, pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.quit_game()
+            elif e.key in (pygame.K_n, pygame.K_ESCAPE):
+                self.confirm_quit = False
+            return
+        if e.key == pygame.K_q:
+            if self.state == "title":
+                self.quit_game()
+            else:
+                self.confirm_quit = True
+                self.held.clear()
+            return
+
         if e.key == pygame.K_ESCAPE:
             if self.state in ("play", "boss", "boss_alarm") and not self.paused:
                 self.paused = True
             elif self.paused:
                 self.paused = False
             else:
-                self.running = False
+                self.quit_game()
             return
         if e.key == pygame.K_m:
             self.audio.toggle_mute()
             return
         if e.key == pygame.K_F11:
-            pygame.display.toggle_fullscreen()
+            self.toggle_fullscreen()
             return
 
         if self.state == "title":
@@ -289,6 +308,22 @@ class Game:
             elif e.key in (pygame.K_c, pygame.K_l):
                 self.use_bomb()
 
+    def quit_game(self) -> None:
+        """離開遊戲：先存檔並還原視窗模式再結束主迴圈。
+
+        直接從全螢幕呼叫 pygame.quit() 在 Windows/SDL2 下會觸發存取違規，
+        因此結束前務必先切回視窗模式。
+        """
+        save_highscore(self.highscore)
+        self.confirm_quit = False
+        if self.fullscreen:
+            self.fullscreen = False
+            try:
+                self.screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
+            except pygame.error:
+                pass
+        self.running = False
+
     def use_bomb(self) -> None:
         if not self.player or self.player.bombs <= 0:
             return
@@ -310,6 +345,12 @@ class Game:
     # 更新
     # ==================================================================
     def update(self, dt: float) -> None:
+        if self.confirm_quit:
+            if self.state != "title":
+                self.background.update(dt * 0.15)
+            else:
+                self.title_bg.update(dt)
+            return
         if not self.has_focus and self.state not in ("title",):
             self.background.update(dt * 0.15)
             return
@@ -557,19 +598,104 @@ class Game:
                 ("以繼續操作", a.font_cjk_small, S.SILVER),
             ])
 
+        if self.confirm_quit:
+            a = self.assets
+            self.hud.draw_banner(surf, 190)
+            self.hud.draw_center_text(surf, [
+                ("QUIT GAME?", a.font_big, S.RED),
+                ("確定要離開遊戲嗎？", a.font_cjk_small, S.WHITE),
+                ("", a.font_tiny, S.WHITE),
+                ("Y / ENTER  =  離開", a.font_cjk_small, S.YELLOW),
+                ("N / ESC  =  取消", a.font_cjk_small, S.SILVER),
+            ])
+
         self.screen.fill(S.BLACK)
         ox = oy = 0
         if self.shake > 0:
             mag = self.shake * 9
             ox = random.uniform(-mag, mag)
             oy = random.uniform(-mag, mag)
-        self.screen.blit(surf, (ox, oy))
+        frame = self.frame
+        frame.fill(S.BLACK)
+        frame.blit(surf, (ox, oy))
         if self.flash > 0:
             veil = pygame.Surface((S.PLAY_W, S.SCREEN_H), pygame.SRCALPHA)
             veil.fill((255, 255, 255, int(200 * self.flash / 0.35)))
-            self.screen.blit(veil, (0, 0))
-        self.hud.draw_panel(self.screen, self)
+            frame.blit(veil, (0, 0))
+        self.hud.draw_panel(frame, self)
+        self._present()
         pygame.display.flip()
+
+    # ------------------------------------------------------------------
+    def frame_viewport(self) -> pygame.Rect:
+        """畫格在實際視窗中的位置與大小（等比縮放後置中）。"""
+        sw, sh = self.screen.get_size()
+        scale = min(sw / S.SCREEN_W, sh / S.SCREEN_H)
+        w = max(1, int(S.SCREEN_W * scale))
+        h = max(1, int(S.SCREEN_H * scale))
+        return pygame.Rect((sw - w) // 2, (sh - h) // 2, w, h)
+
+    def _present(self) -> None:
+        """把固定畫格縮放置中貼到實際視窗，避免全螢幕時偏向左上角。"""
+        self.screen.fill(S.BLACK)
+        vp = self.frame_viewport()
+        if vp.size == (S.SCREEN_W, S.SCREEN_H):
+            self.screen.blit(self.frame, vp.topleft)
+        else:
+            self.screen.blit(pygame.transform.smoothscale(self.frame, vp.size), vp.topleft)
+
+    def toggle_fullscreen(self) -> None:
+        """切換全螢幕。
+
+        採用「無邊框視窗鋪滿桌面」而非真正的顯示模式切換：
+        SDL2 在 Windows 下切換真全螢幕後，行程結束時會發生存取違規，
+        無邊框方式外觀相同、切換更快，也沒有這個問題。
+        """
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            size = self._desktop_size()
+            self.screen = pygame.display.set_mode(size, pygame.NOFRAME)
+            self._reposition_window(0, 0)
+        else:
+            self.screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
+            self._reposition_window(None, None)
+
+    @staticmethod
+    def _desktop_size() -> tuple[int, int]:
+        try:
+            sizes = pygame.display.get_desktop_sizes()
+            if sizes:
+                return sizes[0]
+        except (AttributeError, pygame.error):
+            pass
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            return (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+        except Exception:  # noqa: BLE001
+            info = pygame.display.Info()
+            return (info.current_w, info.current_h)
+
+    @staticmethod
+    def _reposition_window(x: int | None, y: int | None) -> None:
+        """把視窗移到指定位置；None 表示置中於桌面。"""
+        try:
+            import ctypes
+
+            hwnd = pygame.display.get_wm_info().get("window")
+            if not hwnd:
+                return
+            user32 = ctypes.windll.user32
+            if x is None or y is None:
+                sw = user32.GetSystemMetrics(0)
+                sh = user32.GetSystemMetrics(1)
+                w, h = pygame.display.get_surface().get_size()
+                x = max(0, (sw - w) // 2)
+                y = max(0, (sh - h) // 2)
+            user32.SetWindowPos(hwnd, 0, int(x), int(y), 0, 0, 0x0001 | 0x0004)
+        except Exception:  # noqa: BLE001
+            pass
 
     # ------------------------------------------------------------------
     def _draw_title(self, surf: pygame.Surface) -> None:
@@ -596,18 +722,20 @@ class Game:
                 ("PRESS  ENTER  TO  START", a.font_small, S.WHITE)], y0=400)
 
         lines = [
-            "ARROWS / WASD  ....  MOVE",
-            "Z / SPACE  .........  SHOOT",
-            "X  ................  ROLL / EVADE",
-            "C  ................  BOMB",
-            "P / ESC  ..........  PAUSE",
-            "M  ................  MUTE",
+            "ARROWS / WASD / NUMPAD  ..  MOVE",
+            "Z / SPACE  ...............  SHOOT",
+            "X  .......................  ROLL / EVADE",
+            "C  .......................  BOMB",
+            "P / ESC  .................  PAUSE",
+            "M  .......................  MUTE",
+            "F11  .....................  FULLSCREEN",
+            "Q  .......................  QUIT",
         ]
-        y = 470
+        y = 462
         for line in lines:
             img = a.font_tiny.render(line, True, S.SILVER)
             surf.blit(img, img.get_rect(center=(S.PLAY_W // 2, y)))
-            y += 20
+            y += 19
         img = a.font_tiny.render(f"{len(STAGES)} STAGES + BOSS BATTLES", True, S.ORANGE)
         surf.blit(img, img.get_rect(center=(S.PLAY_W // 2, y + 14)))
 
@@ -675,3 +803,10 @@ class Game:
             self.update(dt)
             self.draw()
         save_highscore(self.highscore)
+        # 保險：確保離開主迴圈時不是全螢幕，避免 pygame.quit() 崩潰
+        if self.fullscreen:
+            self.fullscreen = False
+            try:
+                self.screen = pygame.display.set_mode((S.SCREEN_W, S.SCREEN_H))
+            except pygame.error:
+                pass

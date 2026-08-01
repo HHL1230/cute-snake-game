@@ -194,8 +194,18 @@ class Player(pygame.sprite.Sprite):
         def down(*codes: int) -> bool:
             return any(keys[c] for c in codes) or any(c in held for c in codes)
 
-        dx = int(down(pygame.K_RIGHT, pygame.K_d)) - int(down(pygame.K_LEFT, pygame.K_a))
-        dy = int(down(pygame.K_DOWN, pygame.K_s)) - int(down(pygame.K_UP, pygame.K_w))
+        # 數字鍵盤：8/2/4/6 為上下左右，7/9/1/3 為四個對角
+        right = down(pygame.K_RIGHT, pygame.K_d,
+                     pygame.K_KP6, pygame.K_KP9, pygame.K_KP3)
+        left = down(pygame.K_LEFT, pygame.K_a,
+                    pygame.K_KP4, pygame.K_KP7, pygame.K_KP1)
+        up = down(pygame.K_UP, pygame.K_w,
+                  pygame.K_KP8, pygame.K_KP7, pygame.K_KP9)
+        downward = down(pygame.K_DOWN, pygame.K_s,
+                        pygame.K_KP2, pygame.K_KP1, pygame.K_KP3)
+
+        dx = int(right) - int(left)
+        dy = int(downward) - int(up)
         move = pygame.Vector2(dx, dy)
         if move.length_squared() > 0:
             move = move.normalize()
@@ -203,7 +213,8 @@ class Player(pygame.sprite.Sprite):
         self.pos.x = clamp(self.pos.x, 20, S.PLAY_W - 20)
         self.pos.y = clamp(self.pos.y, 30, S.SCREEN_H - 24)
 
-        self.firing = down(pygame.K_z, pygame.K_SPACE, pygame.K_j)
+        self.firing = down(pygame.K_z, pygame.K_SPACE, pygame.K_j, pygame.K_KP5,
+                           pygame.K_KP0)
         self.fire_timer -= dt
         if self.firing and self.fire_timer <= 0 and self.rolling <= 0:
             self.fire(game)

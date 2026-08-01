@@ -161,6 +161,104 @@ def main() -> int:
     check("重新聚焦後可移動", p3.pos.x > x5 + 20)
     game.handle_event(pygame.event.Event(pygame.KEYUP, key=pygame.K_RIGHT))
 
+    print("6. 數字鍵盤方向控制")
+    install(set())
+    game.held.clear()
+    p4 = game.player
+    assert p4 is not None
+    npad = [
+        (pygame.K_KP6, "KP6 右", lambda a, b: b.x > a.x + 15 and abs(b.y - a.y) < 1),
+        (pygame.K_KP4, "KP4 左", lambda a, b: b.x < a.x - 15 and abs(b.y - a.y) < 1),
+        (pygame.K_KP8, "KP8 上", lambda a, b: b.y < a.y - 15 and abs(b.x - a.x) < 1),
+        (pygame.K_KP2, "KP2 下", lambda a, b: b.y > a.y + 15 and abs(b.x - a.x) < 1),
+        (pygame.K_KP7, "KP7 左上", lambda a, b: b.x < a.x - 8 and b.y < a.y - 8),
+        (pygame.K_KP9, "KP9 右上", lambda a, b: b.x > a.x + 8 and b.y < a.y - 8),
+        (pygame.K_KP1, "KP1 左下", lambda a, b: b.x < a.x - 8 and b.y > a.y + 8),
+        (pygame.K_KP3, "KP3 右下", lambda a, b: b.x > a.x + 8 and b.y > a.y + 8),
+    ]
+    for key, label, ok in npad:
+        p4.pos.update(S.PLAY_W / 2, S.SCREEN_H / 2)
+        before = pygame.Vector2(p4.pos)
+        install({key})
+        step(game, 20)
+        check(f"{label} 可移動", ok(before, p4.pos))
+        install(set())
+
+    for b in list(game.player_bullets):
+        b.kill()
+    install({pygame.K_KP5})
+    step(game, 8)
+    check("KP5 可射擊", len(game.player_bullets) > 0)
+    install(set())
+
+    print("7. 全螢幕置中")
+    vp = game.frame_viewport()
+    check("視窗大小相同時 1:1 不縮放",
+          vp.topleft == (0, 0) and vp.size == (S.SCREEN_W, S.SCREEN_H))
+
+    big = pygame.Surface((1920, 1080))
+    game.screen = big
+    vp = game.frame_viewport()
+    scale = min(1920 / S.SCREEN_W, 1080 / S.SCREEN_H)
+    check("全螢幕等比縮放", vp.size == (int(S.SCREEN_W * scale), int(S.SCREEN_H * scale)))
+    check("全螢幕水平置中", abs(vp.centerx - 960) <= 1)
+    check("全螢幕垂直置中", abs(vp.centery - 540) <= 1)
+    check("不再貼齊左上角", vp.left > 0)
+
+    game.draw()
+    check("縮放後畫面確實繪製到中央區域",
+          big.get_at((vp.centerx, 8))[:3] != (0, 0, 0)
+          and big.get_at((4, vp.centery))[:3] == tuple(S.BLACK))
+
+    wide = pygame.Surface((1000, 3000))
+    game.screen = wide
+    vp = game.frame_viewport()
+    check("極端長寬比仍完整置中",
+          vp.width <= 1000 and vp.height <= 3000 and abs(vp.centerx - 500) <= 1)
+
+    game.screen = screen
+
+    print("7b. 全螢幕切換")
+    check("預設為視窗模式", not game.fullscreen)
+    game.toggle_fullscreen()
+    check("F11 切換為全螢幕", game.fullscreen)
+    fs_vp = game.frame_viewport()
+    sw, sh = game.screen.get_size()
+    check("全螢幕畫面置中",
+          abs(fs_vp.centerx - sw // 2) <= 1 and abs(fs_vp.centery - sh // 2) <= 1)
+    check("全螢幕畫面未超出視窗", fs_vp.width <= sw and fs_vp.height <= sh)
+    game.toggle_fullscreen()
+    check("再按 F11 回到視窗模式",
+          not game.fullscreen and game.screen.get_size() == (S.SCREEN_W, S.SCREEN_H))
+
+    print("8. 離開遊戲按鍵")
+    game.confirm_quit = False
+    game.running = True
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    check("遊戲中按 Q 先顯示確認", game.confirm_quit and game.running)
+
+    x6 = game.player.pos.x
+    install({pygame.K_RIGHT})
+    step(game, 30)
+    check("確認畫面中遊戲凍結", abs(game.player.pos.x - x6) < 0.01)
+    install(set())
+
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_n))
+    check("按 N 取消離開", not game.confirm_quit and game.running)
+
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    check("確認畫面按 ESC 也可取消", not game.confirm_quit and game.running)
+
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
+    check("按 Q 再按 Y 會離開遊戲", not game.running)
+
+    game.running = True
+    game.state = "title"
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_q))
+    check("標題畫面按 Q 直接離開", not game.running and not game.confirm_quit)
+
     print("\nALL INPUT TESTS PASSED")
     pygame.quit()
     return 0
