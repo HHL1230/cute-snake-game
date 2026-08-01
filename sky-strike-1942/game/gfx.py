@@ -365,6 +365,7 @@ class Assets:
 
         self.player_bullet = make_player_bullet()
         self.laser_bullet = make_laser_bullet(10, 40)
+        self.laser_bullet_wide = make_laser_bullet(14, 52)
         self.laser_bullet_small = make_laser_bullet(6, 30)
         self.enemy_bullet = make_enemy_bullet()
         self.boss_bullet = make_boss_bullet()

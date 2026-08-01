@@ -180,9 +180,12 @@ class Game:
         if kind == "laser":
             b = Bullet(self.assets.laser_bullet, pos, vel, damage,
                        radius=5.0, pierce=True)
-        elif kind == "laser_small":
-            b = Bullet(self.assets.laser_bullet_small, pos, vel, damage,
-                       radius=3.5, pierce=True)
+        elif kind == "laser_wide":
+            b = Bullet(self.assets.laser_bullet_wide, pos, vel, damage,
+                       radius=7.0, pierce=True)
+        elif kind == "laser_bolt":
+            # 僚機的小型光束：外觀是雷射，但不穿透，威力與機砲相當
+            b = Bullet(self.assets.laser_bullet_small, pos, vel, damage, radius=3.5)
         else:
             b = Bullet(self.assets.player_bullet, pos, vel, damage)
         self.player_bullets.add(b)

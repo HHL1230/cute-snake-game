@@ -135,10 +135,10 @@ class Wingman(pygame.sprite.Sprite):
         self.cooldown -= dt
         if self.player.firing and self.cooldown <= 0:
             if self.player.weapon == S.WEAPON_LASER:
-                self.cooldown = 0.30
+                self.cooldown = 0.28
                 game.spawn_player_bullet((self.rect.centerx, self.rect.top),
-                                         (0, -S.LASER_BULLET_SPEED), damage=2,
-                                         kind="laser_small")
+                                         (0, -S.LASER_BULLET_SPEED), damage=1,
+                                         kind="laser_bolt")
             else:
                 self.cooldown = 0.22
                 game.spawn_player_bullet((self.rect.centerx, self.rect.top),
@@ -227,7 +227,7 @@ class Player(pygame.sprite.Sprite):
         def down(*codes: int) -> bool:
             return any(keys[c] for c in codes) or any(c in held for c in codes)
 
-        # 數字鍵盤：8/2/4/6 為上下左右，7/9/1/3 為四個對角
+        # 數字鍵盤：8/2/4/6 為上下左右，5 同樣是下，7/9/1/3 為四個對角
         right = down(pygame.K_RIGHT, pygame.K_d,
                      pygame.K_KP6, pygame.K_KP9, pygame.K_KP3)
         left = down(pygame.K_LEFT, pygame.K_a,
@@ -235,7 +235,7 @@ class Player(pygame.sprite.Sprite):
         up = down(pygame.K_UP, pygame.K_w,
                   pygame.K_KP8, pygame.K_KP7, pygame.K_KP9)
         downward = down(pygame.K_DOWN, pygame.K_s,
-                        pygame.K_KP2, pygame.K_KP1, pygame.K_KP3)
+                        pygame.K_KP2, pygame.K_KP5, pygame.K_KP1, pygame.K_KP3)
 
         dx = int(right) - int(left)
         dy = int(downward) - int(up)
@@ -246,8 +246,7 @@ class Player(pygame.sprite.Sprite):
         self.pos.x = clamp(self.pos.x, 20, S.PLAY_W - 20)
         self.pos.y = clamp(self.pos.y, 30, S.SCREEN_H - 24)
 
-        self.firing = down(pygame.K_z, pygame.K_SPACE, pygame.K_j, pygame.K_KP5,
-                           pygame.K_KP0)
+        self.firing = down(pygame.K_z, pygame.K_SPACE, pygame.K_j, pygame.K_KP0)
         self.fire_timer -= dt
         if self.firing and self.fire_timer <= 0 and self.rolling <= 0:
             self.fire(game)
@@ -297,25 +296,12 @@ class Player(pygame.sprite.Sprite):
         game.audio.play("shoot")
 
     def _fire_laser(self, game) -> None:  # noqa: ANN001
-        """穿透雷射：彈數少、射速慢，但可貫穿整條編隊。"""
+        """穿透雷射：只有一道正前方光束，不散射；貫穿整條敵機縱列。"""
         self.fire_timer = S.LASER_FIRE_COOLDOWN
         x, y = self.pos.x, self.rect.top - 10
-        v = S.LASER_BULLET_SPEED
-        p = self.power
-        shots: list[tuple[tuple[float, float], tuple[float, float], int, str]] = [
-            ((x, y), (0, -v), 3 + p // 2, "laser"),
-        ]
-        if p >= 1:
-            shots.append(((x - 13, y + 10), (0, -v), 2, "laser_small"))
-            shots.append(((x + 13, y + 10), (0, -v), 2, "laser_small"))
-        if p >= 2:
-            shots.append(((x - 22, y + 16), (-v * 0.16, -v * 0.98), 2, "laser_small"))
-            shots.append(((x + 22, y + 16), (v * 0.16, -v * 0.98), 2, "laser_small"))
-        if p >= 4:
-            shots.append(((x - 30, y + 20), (-v * 0.34, -v * 0.94), 2, "laser_small"))
-            shots.append(((x + 30, y + 20), (v * 0.34, -v * 0.94), 2, "laser_small"))
-        for pos, vel, dmg, kind in shots:
-            game.spawn_player_bullet(pos, vel, dmg, kind=kind)
+        kind = "laser_wide" if self.power >= 2 else "laser"
+        game.spawn_player_bullet((x, y), (0, -S.LASER_BULLET_SPEED),
+                                 3 + self.power // 2, kind=kind)
         game.audio.play("laser")
 
 

@@ -132,9 +132,11 @@ def main() -> int:
     assert game.player.weapon == S.WEAPON_LASER, game.player.weapon
     game.player.fire_timer = 0.0
     game.player_bullets.empty()
+    game.player.power = S.MAX_POWER
     game.player.fire(game)
-    assert len(game.player_bullets) > 0
+    assert len(game.player_bullets) == 1, f"雷射應只有一道光束，實際 {len(game.player_bullets)}"
     assert all(b.pierce for b in game.player_bullets), "雷射彈應可穿透"
+    assert all(b.vel.x == 0 for b in game.player_bullets), "雷射不應散射"
 
     # 雷射應能貫穿縱列上的多架敵機
     def _line_of_targets() -> list:

@@ -171,6 +171,7 @@ def main() -> int:
         (pygame.K_KP4, "KP4 左", lambda a, b: b.x < a.x - 15 and abs(b.y - a.y) < 1),
         (pygame.K_KP8, "KP8 上", lambda a, b: b.y < a.y - 15 and abs(b.x - a.x) < 1),
         (pygame.K_KP2, "KP2 下", lambda a, b: b.y > a.y + 15 and abs(b.x - a.x) < 1),
+        (pygame.K_KP5, "KP5 下", lambda a, b: b.y > a.y + 15 and abs(b.x - a.x) < 1),
         (pygame.K_KP7, "KP7 左上", lambda a, b: b.x < a.x - 8 and b.y < a.y - 8),
         (pygame.K_KP9, "KP9 右上", lambda a, b: b.x > a.x + 8 and b.y < a.y - 8),
         (pygame.K_KP1, "KP1 左下", lambda a, b: b.x < a.x - 8 and b.y > a.y + 8),
@@ -188,8 +189,17 @@ def main() -> int:
         b.kill()
     install({pygame.K_KP5})
     step(game, 8)
-    check("KP5 可射擊", len(game.player_bullets) > 0)
+    check("KP5 不射擊（改為下移）", len(game.player_bullets) == 0)
     install(set())
+
+    for b in list(game.player_bullets):
+        b.kill()
+    install({pygame.K_KP0})
+    step(game, 8)
+    check("KP0 可射擊", len(game.player_bullets) > 0)
+    install(set())
+    for b in list(game.player_bullets):
+        b.kill()
 
     print("7. 全螢幕置中")
     vp = game.frame_viewport()
