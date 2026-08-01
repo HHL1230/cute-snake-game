@@ -325,6 +325,44 @@ MUSIC: dict[str, dict] = {
              "notes": _DRUM},
         ],
     },
+    "stage5": {
+        "bpm": 158, "beats": 32,
+        "tracks": [
+            {"wave": "square", "vol": 0.18, "step": 0.5, "length": 0.7,
+             "notes": _rep([71, 74, 76, 79, 78, 76, 74, 71,
+                            69, 72, 74, 77, 76, 74, 72, 69], 4)},
+            {"wave": "saw", "vol": 0.25, "step": 0.5, "length": 0.5,
+             "notes": _rep([35, 35, 42, 35, 33, 33, 40, 33], 8)},
+            {"wave": "noise", "vol": 0.16, "step": 0.5, "length": 0.35,
+             "notes": _DRUM},
+        ],
+    },
+    "stage6": {
+        "bpm": 164, "beats": 32,
+        "tracks": [
+            {"wave": "pulse", "vol": 0.18, "step": 0.5, "length": 0.65,
+             "notes": _rep([68, 71, 73, 68, 76, 73, 71, 68,
+                            66, 69, 71, 66, 74, 71, 69, 66], 4)},
+            {"wave": "saw", "vol": 0.26, "step": 0.25, "length": 0.4,
+             "notes": _rep([32, 32, 39, 32, 32, 39, 32, 44], 16)},
+            {"wave": "noise", "vol": 0.17, "step": 0.5, "length": 0.32,
+             "notes": _DRUM},
+        ],
+    },
+    "stage7": {
+        "bpm": 172, "beats": 32,
+        "tracks": [
+            {"wave": "square", "vol": 0.19, "step": 0.25, "length": 0.6,
+             "notes": _rep([76, 79, 81, 79, 76, 74, 72, 74,
+                            77, 81, 84, 81, 77, 76, 74, 72], 8)},
+            {"wave": "saw", "vol": 0.27, "step": 0.5, "length": 0.45,
+             "notes": _rep([33, 33, 33, 40, 31, 31, 31, 38], 8)},
+            {"wave": "tri", "vol": 0.20, "step": 1.0, "length": 0.9,
+             "notes": _rep([57, 60, 64, 60, 55, 59, 62, 59], 4)},
+            {"wave": "noise", "vol": 0.17, "step": 0.25, "length": 0.30,
+             "notes": _rep(["b", "x", "x", "x"], 32)},
+        ],
+    },
     "boss": {
         "bpm": 160, "beats": 32,
         "tracks": [

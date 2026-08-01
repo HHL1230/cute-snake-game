@@ -5,9 +5,16 @@
 
 所有圖形與音效都是**程式即時產生**的（沒有任何外部素材檔），整個遊戲只依賴 `pygame-ce`。
 
+所有機體、頭目與爆炸都以 **4 倍解析度超取樣繪製後縮小**（背景為 2 倍），
+因此有平滑的邊緣、圓柱狀機身漸層、座艙玻璃反光、翼面板線與統一光源的投影。
+
 | 標題畫面 | 關卡進行 | 頭目戰 |
 |---|---|---|
 | ![title](docs/title.png) | ![stage1](docs/stage1.png) | ![boss](docs/boss1.png) |
+
+| STAGE 6 火山列島 | STAGE 7 敵軍旗艦隊 | 最終頭目 |
+|---|---|---|
+| ![stage6](docs/stage6.png) | ![stage7](docs/stage7.png) | ![boss7](docs/boss7.png) |
 
 ---
 
@@ -82,7 +89,7 @@ python -m venv .venv
 
 ### 關卡
 
-共 **5 關**，每關結尾都有專屬頭目。全部通關後會進入 **ALL STAGES CLEAR 結局畫面**（結算 All Clear 獎勵與最終分數），**不會再從第 1 關重跑**；按 ENTER 回到標題畫面。
+共 **7 關**，每關結尾都有專屬頭目。全部通關後會進入 **ALL STAGES CLEAR 結局畫面**（結算 All Clear 獎勵與最終分數），**不會再從第 1 關重跑**；按 ENTER 回到標題畫面。
 
 | # | 關卡 | 主題 | 頭目 |
 |---|------|------|------|
@@ -91,6 +98,8 @@ python -m venv .venv
 | 3 | NIGHT RUN | 夜戰海域 | KUROTSUKI 夜戰母機 |
 | 4 | DESERT LINE | 沙漠前線 | SANDSTORM 陸上戰艦 |
 | 5 | IRON FORTRESS | 鋼鐵要塞 | OMEGA 要塞核心 |
+| 6 | VOLCANIC RIM | 火山列島・熔岩地帶 | MAGMADON 熔岩機龍 |
+| 7 | FINAL SORTIE | 敵軍旗艦隊決戰 | SHIRANUI 超弩級旗艦 |
 
 ### 武器
 
@@ -110,7 +119,7 @@ python -m venv .venv
 | 圖示 | 效果 |
 |------|------|
 | **P** | 火力提升（共 4 階，最高 9 發散射） |
-| **W** | 增加僚機（最多 2 架，跟隨並同步射擊）—— 全遊戲共 15 處掉落，最容易取得 |
+| **W** | 增加僚機（最多 2 架，跟隨並同步射擊）—— 全遊戲共 21 處掉落，最容易取得 |
 | **Z** | 切換為穿透雷射 |
 | **V** | 切換回散射機砲 |
 | **B** | 炸彈 +1（最多 4） |
@@ -138,13 +147,13 @@ sky-strike-1942/
 │   ├── utils.py            小工具與最高分存讀
 │   ├── audio.py            程式合成的音效與 chiptune 背景音樂
 │   ├── gfx.py              程式繪製的機體 / 子彈 / 道具 / 爆炸圖
-│   ├── background.py       無縫捲動背景（海洋、島嶼、夜戰、沙漠、要塞）
+│   ├── background.py       無縫捲動背景（海洋、島嶼、夜戰、沙漠、要塞、火山、艦隊）
 │   ├── entities.py         玩家、僚機、敵機、頭目、子彈、道具、特效
-│   ├── stages.py           5 關的波次腳本與頭目設定
+│   ├── stages.py           7 關的波次腳本與頭目設定
 │   ├── hud.py              右側資訊面板與畫面文字
 │   └── app.py              主迴圈、狀態機、碰撞、生成器
 ├── tests/
-│   ├── smoke_test.py       無視窗煙霧測試（跑完 5 關 + 頭目 + Game Over）
+│   ├── smoke_test.py       無視窗煙霧測試（跑完 7 關 + 頭目 + Game Over）
 │   └── input_test.py       輸入測試（移動 / 數字鍵盤 / 射擊 / 全螢幕置中 / 離開 / 焦點）
 └── tools/
     ├── screenshot.py       無視窗截圖工具
@@ -167,7 +176,7 @@ sky-strike-1942/
 ## ✅ 驗證
 
 ```powershell
-# 無視窗跑完 5 關、頭目戰、道具、炸彈、死亡與 Game Over 流程
+# 無視窗跑完 7 關、頭目戰、道具、炸彈、死亡與 Game Over 流程
 .\.venv\Scripts\python.exe tests\smoke_test.py
 
 # 輸入測試：移動、射擊、死亡重生後、事件驅動備援、視窗焦點

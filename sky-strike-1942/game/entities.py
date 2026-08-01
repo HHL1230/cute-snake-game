@@ -493,8 +493,8 @@ class Boss(pygame.sprite.Sprite):
         super().__init__()
         self.assets = assets
         self.stage = stage
-        self.base_image = assets.bosses[min(stage, 5)]
-        self.hit_image = assets.bosses_hit[min(stage, 5)]
+        self.base_image = assets.bosses[min(stage, 7)]
+        self.hit_image = assets.bosses_hit[min(stage, 7)]
         self.image = self.base_image
         self.rect = self.image.get_rect(midbottom=(S.PLAY_W // 2, 0))
         self.pos = pygame.Vector2(self.rect.center)
