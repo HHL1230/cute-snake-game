@@ -260,7 +260,7 @@ _POWERUP_STYLE = {
     "power": ("P", RED, WHITE),
     "wing": ("W", BLUE, WHITE),
     "bomb": ("B", (60, 62, 74), YELLOW),
-    "loop": ("L", GREEN, WHITE),
+    "roll": ("R", GREEN, WHITE),
     "life": ("1UP", PURPLE, WHITE),
     "laser": ("Z", (18, 122, 158), CYAN),
     "vulcan": ("V", (168, 96, 16), YELLOW),
@@ -336,7 +336,7 @@ class Assets:
                 frames.append(img)
             self.player_frames[bank] = frames
 
-        # 翻滾（loop-the-loop）動畫：機身橫向壓縮 + 亮邊
+        # 翻滾（roll / loop-the-loop）動畫：機身橫向壓縮 + 亮邊
         self.player_roll: list[pygame.Surface] = []
         for i in range(12):
             t = i / 11

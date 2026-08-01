@@ -119,7 +119,7 @@ def main() -> int:
     assert game.player is not None
     game.player.clear_wingmen(game)
     game.player.power = 0
-    for kind in ("power", "wing", "bomb", "loop", "life"):
+    for kind in ("power", "wing", "bomb", "roll", "life"):
         game._apply_powerup(kind)
     assert game.player.power == 1, game.player.power
     assert len(game.player.wingmen) == 1
@@ -195,6 +195,24 @@ def main() -> int:
     step(game, 1.5, god=False)
     game.use_bomb()
     step(game, 1.0, god=False)
+
+    # 炸彈 / 翻滾用完時應顯示中央提示
+    game.notice = None
+    game.notice_t = 0.0
+    game.player.bombs = 0
+    game.use_bomb()
+    assert game.notice is not None and game.notice_t > 0, "炸彈用完應顯示提示"
+    assert game.notice[0] == "NO BOMBS LEFT", game.notice
+    game.notice = None
+    game.notice_t = 0.0
+    game.player.rolls = 0
+    game.player.rolling = 0.0
+    assert not game.player.start_roll(game)
+    assert game.notice is not None and game.notice[0] == "NO ROLLS LEFT", game.notice
+    # 提示會自動消失
+    step(game, 2.0, autofire=False, god=True)
+    assert game.notice is None and game.notice_t == 0.0, game.notice
+    print("  OK  炸彈 / 翻滾用完提示")
 
     game.lives = 0
     game.player.invuln = 0

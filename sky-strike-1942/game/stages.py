@@ -127,7 +127,7 @@ STAGES: list[dict] = [
                  params={"period": 0.6}, x=0.5, reward="bomb"),
             wave(38.0, "bomber", count=4, gap=0.6, pattern="swoop",
                  params={"hold_y": 200, "dir": 1}, x=0.15, reward="wing"),
-            wave(43.0, "jet", count=10, gap=0.14, pattern="dive", x=0.5, reward="loop"),
+            wave(43.0, "jet", count=10, gap=0.14, pattern="dive", x=0.5, reward="roll"),
         ],
     },
     # ---------------------------------------------------------------- 4

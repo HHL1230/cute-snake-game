@@ -73,6 +73,10 @@ class Game:
         self.has_focus = True
         self.confirm_quit = False
 
+        # 畫面中央的短暫提示（例如炸彈 / 翻滾用完）
+        self.notice: tuple[str, str] | None = None
+        self.notice_t = 0.0
+
         self.background = Background(STAGES[0]["theme"], STAGES[0]["scroll"], seed=1)
         self.title_bg = Background("ocean", 60.0, seed=7)
         self.title_planes: list[list[float]] = []
@@ -103,6 +107,8 @@ class Game:
         self.stage_index = index
         self.stage_data = STAGES[index]
         self._clear_groups()
+        self.notice = None
+        self.notice_t = 0.0
 
         loop_hp = 1.0 + 0.4 * self.loop_count
         loop_speed = 1.0 + 0.07 * self.loop_count
@@ -346,8 +352,19 @@ class Game:
                 pass
         self.running = False
 
+    def notify(self, text: str, sub: str = "", duration: float = 1.5) -> None:
+        """在畫面中央顯示一則短暫提示（例如炸彈或翻滾已用完）。"""
+        fresh = self.notice is None or self.notice[0] != text
+        self.notice = (text, sub)
+        self.notice_t = duration
+        if fresh:
+            self.audio.play("menu")
+
     def use_bomb(self) -> None:
-        if not self.player or self.player.bombs <= 0:
+        if not self.player:
+            return
+        if self.player.bombs <= 0:
+            self.notify("NO BOMBS LEFT", "炸彈已用完")
             return
         self.player.bombs -= 1
         self.flash = 0.35
@@ -381,6 +398,10 @@ class Game:
             self.shake = max(0.0, self.shake - dt)
         if self.flash > 0:
             self.flash = max(0.0, self.flash - dt)
+        if self.notice_t > 0:
+            self.notice_t = max(0.0, self.notice_t - dt)
+            if self.notice_t == 0.0:
+                self.notice = None
 
         if self.state == "title":
             self.title_bg.update(dt)
@@ -601,8 +622,8 @@ class Game:
         elif kind == "bomb":
             p.bombs = min(4, p.bombs + 1)
             self.add_score(500)
-        elif kind == "loop":
-            p.loops = min(9, p.loops + 2)
+        elif kind == "roll":
+            p.rolls = min(9, p.rolls + 2)
             self.add_score(500)
         elif kind == "laser":
             p.set_weapon(self, S.WEAPON_LASER)
@@ -858,6 +879,17 @@ class Game:
             if self.state_t > 2.0 and self.hud.blink(self.state_t):
                 lines.append(("PRESS ENTER", a.font_small, S.YELLOW))
             self.hud.draw_center_text(surf, lines)
+
+        if self.notice and self.notice_t > 0:
+            text, sub = self.notice
+            top = 300
+            strip = pygame.Surface((S.PLAY_W, 66 if sub else 42), pygame.SRCALPHA)
+            strip.fill((0, 0, 0, 165))
+            surf.blit(strip, (0, top - 8))
+            lines = [(text, a.font, S.YELLOW)]
+            if sub:
+                lines.append((sub, a.font_cjk_small, S.WHITE))
+            self.hud.draw_center_text(surf, lines, y0=top)
 
         if self.paused:
             self.hud.draw_banner(surf, 140)

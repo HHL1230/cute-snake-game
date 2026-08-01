@@ -16,9 +16,9 @@ PLAY_RECT = (0, 0, PLAY_W, SCREEN_H)
 # --- 玩家 ---
 PLAYER_SPEED = 260.0          # px / 秒
 PLAYER_START_LIVES = 3
-PLAYER_START_LOOPS = 3        # 每條命的翻滾迴避次數
+PLAYER_START_ROLLS = 3        # 每條命的翻滾迴避（roll）次數
 PLAYER_RESPAWN_INVULN = 2.5   # 復活無敵秒數
-PLAYER_LOOP_TIME = 0.9        # 翻滾持續秒數（期間無敵）
+PLAYER_ROLL_TIME = 0.9        # 翻滾持續秒數（期間無敵）
 PLAYER_FIRE_COOLDOWN = 0.14
 PLAYER_HITBOX = (10, 10)      # 判定框比外觀小，較好操作
 

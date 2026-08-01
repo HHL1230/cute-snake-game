@@ -152,7 +152,7 @@ class Audio:
             _concat(_tone(660, 660, 0.06, 0.28, "square", 0.01, 0.3),
                     _tone(880, 880, 0.06, 0.28, "square", 0.01, 0.3),
                     _tone(1320, 1320, 0.12, 0.28, "square", 0.01, 0.5)), 0.4)
-        self.sounds["loop"] = self._snd(
+        self.sounds["roll"] = self._snd(
             _mix(_noise(0.55, 0.30, decay=1.2, low=0.25),
                  _tone(300, 1200, 0.55, 0.20, "sine", 0.05, 0.5)), 0.35)
         self.sounds["death"] = self._snd(

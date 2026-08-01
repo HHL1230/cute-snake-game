@@ -85,9 +85,9 @@ class Hud:
         y += 24
 
         # 翻滾
-        label("LOOPS  [X]")
-        lp = game.player.loops if game.player else 0
-        for i in range(min(lp, 5)):
+        label("ROLLS  [X]")
+        rl = game.player.rolls if game.player else 0
+        for i in range(min(rl, 5)):
             pygame.draw.circle(surf, S.GREEN, (x + 9 + i * 20, y + 6), 6, 2)
         y += 24
 

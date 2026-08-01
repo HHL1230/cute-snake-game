@@ -156,7 +156,7 @@ class Player(pygame.sprite.Sprite):
 
         self.power = 0
         self.bombs = 2
-        self.loops = S.PLAYER_START_LOOPS
+        self.rolls = S.PLAYER_START_ROLLS
         self.wingmen: list[Wingman] = []
         self.weapon = S.WEAPON_VULCAN
 
@@ -182,12 +182,15 @@ class Player(pygame.sprite.Sprite):
         return self.invuln > 0 or self.rolling > 0
 
     def start_roll(self, game) -> bool:  # noqa: ANN001
-        if self.rolling > 0 or self.loops <= 0:
+        if self.rolling > 0:
             return False
-        self.loops -= 1
-        self.rolling = S.PLAYER_LOOP_TIME
+        if self.rolls <= 0:
+            game.notify("NO ROLLS LEFT", "翻滾次數已用完")
+            return False
+        self.rolls -= 1
+        self.rolling = S.PLAYER_ROLL_TIME
         self.roll_t = 0.0
-        game.audio.play("loop")
+        game.audio.play("roll")
         return True
 
     def add_power(self, game) -> None:  # noqa: ANN001
@@ -262,7 +265,7 @@ class Player(pygame.sprite.Sprite):
         target_bank = int(clamp(dx * 2, -2, 2))
         self.bank = target_bank
         if self.rolling > 0:
-            idx = int((1 - self.rolling / S.PLAYER_LOOP_TIME) * len(self.assets.player_roll))
+            idx = int((1 - self.rolling / S.PLAYER_ROLL_TIME) * len(self.assets.player_roll))
             self.image = self.assets.player_roll[min(idx, len(self.assets.player_roll) - 1)]
         else:
             frames = self.frames[self.bank]
