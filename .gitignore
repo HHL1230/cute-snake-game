@@ -1,1 +1,7 @@
-node_modules/\n.env\n.vscode/
+node_modules/
+.env
+.vscode/
+
+# Sibling project clones kept in this folder - each has its own repository
+moto-duel/
+star-sprout-adventure/
